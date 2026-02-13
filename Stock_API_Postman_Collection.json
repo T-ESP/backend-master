@@ -1,0 +1,467 @@
+{
+  "info": {
+    "name": "Stock Management API - Products",
+    "description": "Complete Postman collection for testing Product endpoints in the Stock Management API",
+    "schema": "https://schema.getpostman.com/json/collection/v2.1.0/collection.json"
+  },
+  "variable": [
+    {
+      "key": "base_url",
+      "value": "http://localhost:8090",
+      "type": "string"
+    },
+    {
+      "key": "product_id",
+      "value": "1",
+      "type": "string"
+    },
+    {
+      "key": "product_reference",
+      "value": "REF0001",
+      "type": "string"
+    }
+  ],
+  "item": [
+    {
+      "name": "Products",
+      "item": [
+        {
+          "name": "Create Product",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "if (pm.response.code === 201) {",
+                  "    var jsonData = pm.response.json();",
+                  "    if (jsonData.data && jsonData.data.id) {",
+                  "        pm.collectionVariables.set('product_id', jsonData.data.id);",
+                  "        pm.collectionVariables.set('product_reference', jsonData.data.reference);",
+                  "    }",
+                  "}"
+                ],
+                "type": "text/javascript"
+              }
+            }
+          ],
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"name\": \"Test Product API\",\n  \"category\": \"Électronique\",\n  \"reference\": \"TEST-API-001\",\n  \"supplier_id\": 1,\n  \"stock_quantity\": 100,\n  \"buying_price\": 15.99,\n  \"status\": \"InStock\"\n}"
+            },
+            "url": {
+              "raw": "{{base_url}}/products",
+              "host": ["{{base_url}}"],
+              "path": ["products"]
+            },
+            "description": "Create a new product. Status can be: InStock, OutOfStock, Discontinued, or Ordered"
+          },
+          "response": []
+        },
+        {
+          "name": "Create Product (Minimal)",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"name\": \"Minimal Product\",\n  \"category\": \"Alimentaire\",\n  \"reference\": \"MIN-001\",\n  \"supplier_id\": 2,\n  \"stock_quantity\": 0,\n  \"buying_price\": 5.50\n}"
+            },
+            "url": {
+              "raw": "{{base_url}}/products",
+              "host": ["{{base_url}}"],
+              "path": ["products"]
+            },
+            "description": "Create product without specifying status (defaults to InStock)"
+          },
+          "response": []
+        },
+        {
+          "name": "Get All Products",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{base_url}}/products",
+              "host": ["{{base_url}}"],
+              "path": ["products"]
+            },
+            "description": "Get all products (default limit: 50, offset: 0)"
+          },
+          "response": []
+        },
+        {
+          "name": "Get Products with Filters",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{base_url}}/products?q=Produit&category=Électronique&min_stock=10&max_stock=150&limit=20&offset=0",
+              "host": ["{{base_url}}"],
+              "path": ["products"],
+              "query": [
+                {
+                  "key": "q",
+                  "value": "Produit",
+                  "description": "Search by name"
+                },
+                {
+                  "key": "category",
+                  "value": "Électronique",
+                  "description": "Filter by category"
+                },
+                {
+                  "key": "supplier_id",
+                  "value": "1",
+                  "disabled": true,
+                  "description": "Filter by supplier ID"
+                },
+                {
+                  "key": "min_price",
+                  "value": "5",
+                  "disabled": true,
+                  "description": "Minimum buying price"
+                },
+                {
+                  "key": "max_price",
+                  "value": "20",
+                  "disabled": true,
+                  "description": "Maximum buying price"
+                },
+                {
+                  "key": "min_stock",
+                  "value": "10",
+                  "description": "Minimum stock quantity"
+                },
+                {
+                  "key": "max_stock",
+                  "value": "150",
+                  "description": "Maximum stock quantity"
+                },
+                {
+                  "key": "limit",
+                  "value": "20",
+                  "description": "Results per page"
+                },
+                {
+                  "key": "offset",
+                  "value": "0",
+                  "description": "Pagination offset"
+                }
+              ]
+            },
+            "description": "Search and filter products by various criteria"
+          },
+          "response": []
+        },
+        {
+          "name": "Get Product by ID",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{base_url}}/products/{{product_id}}",
+              "host": ["{{base_url}}"],
+              "path": ["products", "{{product_id}}"]
+            },
+            "description": "Get a single product by ID"
+          },
+          "response": []
+        },
+        {
+          "name": "Get Product by Reference",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{base_url}}/products/reference/{{product_reference}}",
+              "host": ["{{base_url}}"],
+              "path": ["products", "reference", "{{product_reference}}"]
+            },
+            "description": "Get a single product by its reference code"
+          },
+          "response": []
+        },
+        {
+          "name": "Update Product (Full)",
+          "request": {
+            "method": "PUT",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"name\": \"Updated Product Name\",\n  \"category\": \"Maison\",\n  \"reference\": \"TEST-API-001-UPDATED\",\n  \"supplier_id\": 3,\n  \"stock_quantity\": 75,\n  \"buying_price\": 18.50,\n  \"status\": \"InStock\"\n}"
+            },
+            "url": {
+              "raw": "{{base_url}}/products/{{product_id}}",
+              "host": ["{{base_url}}"],
+              "path": ["products", "{{product_id}}"]
+            },
+            "description": "Update all fields of a product"
+          },
+          "response": []
+        },
+        {
+          "name": "Update Product (Partial - Stock Only)",
+          "request": {
+            "method": "PUT",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"stock_quantity\": 50\n}"
+            },
+            "url": {
+              "raw": "{{base_url}}/products/{{product_id}}",
+              "host": ["{{base_url}}"],
+              "path": ["products", "{{product_id}}"]
+            },
+            "description": "Update only stock quantity (partial update)"
+          },
+          "response": []
+        },
+        {
+          "name": "Update Product (Set to Discontinued)",
+          "request": {
+            "method": "PUT",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"status\": \"Discontinued\"\n}"
+            },
+            "url": {
+              "raw": "{{base_url}}/products/{{product_id}}",
+              "host": ["{{base_url}}"],
+              "path": ["products", "{{product_id}}"]
+            },
+            "description": "Mark product as discontinued"
+          },
+          "response": []
+        },
+        {
+          "name": "Update Product (Set to Ordered)",
+          "request": {
+            "method": "PUT",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"status\": \"Ordered\"\n}"
+            },
+            "url": {
+              "raw": "{{base_url}}/products/{{product_id}}",
+              "host": ["{{base_url}}"],
+              "path": ["products", "{{product_id}}"]
+            },
+            "description": "Mark product as being restocked (ordered)"
+          },
+          "response": []
+        },
+        {
+          "name": "Delete Product",
+          "request": {
+            "method": "DELETE",
+            "header": [],
+            "url": {
+              "raw": "{{base_url}}/products/{{product_id}}",
+              "host": ["{{base_url}}"],
+              "path": ["products", "{{product_id}}"]
+            },
+            "description": "Delete a product by ID"
+          },
+          "response": []
+        }
+      ],
+      "description": "CRUD operations for products"
+    },
+    {
+      "name": "Product KPIs",
+      "item": [
+        {
+          "name": "Get Pricing & Margin KPI",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{base_url}}/products/{{product_id}}/kpis/pricing-margin",
+              "host": ["{{base_url}}"],
+              "path": ["products", "{{product_id}}", "kpis", "pricing-margin"]
+            },
+            "description": "Get price & margin analytics for a product"
+          },
+          "response": []
+        },
+        {
+          "name": "Get Stock Availability KPI",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{base_url}}/products/{{product_id}}/kpis/stock-availability",
+              "host": ["{{base_url}}"],
+              "path": ["products", "{{product_id}}", "kpis", "stock-availability"]
+            },
+            "description": "Get stock monitoring and availability metrics"
+          },
+          "response": []
+        },
+        {
+          "name": "Get Sales Rotation KPI",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{base_url}}/products/{{product_id}}/kpis/sales-rotation",
+              "host": ["{{base_url}}"],
+              "path": ["products", "{{product_id}}", "kpis", "sales-rotation"]
+            },
+            "description": "Get sales performance and rotation metrics"
+          },
+          "response": []
+        },
+        {
+          "name": "Get Profitability KPI",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{base_url}}/products/{{product_id}}/kpis/profitability",
+              "host": ["{{base_url}}"],
+              "path": ["products", "{{product_id}}", "kpis", "profitability"]
+            },
+            "description": "Get financial performance and ROI"
+          },
+          "response": []
+        },
+        {
+          "name": "Get Restock KPI",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{base_url}}/products/{{product_id}}/kpis/restock",
+              "host": ["{{base_url}}"],
+              "path": ["products", "{{product_id}}", "kpis", "restock"]
+            },
+            "description": "Get restock analytics and history"
+          },
+          "response": []
+        },
+        {
+          "name": "Get Predictions & Alerts KPI",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{base_url}}/products/{{product_id}}/kpis/predictions-alerts",
+              "host": ["{{base_url}}"],
+              "path": ["products", "{{product_id}}", "kpis", "predictions-alerts"]
+            },
+            "description": "Get predictive analytics (stockout date, reorder point, alerts)"
+          },
+          "response": []
+        },
+        {
+          "name": "Get Scoring & Classification KPI",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{base_url}}/products/{{product_id}}/kpis/scoring-classification",
+              "host": ["{{base_url}}"],
+              "path": ["products", "{{product_id}}", "kpis", "scoring-classification"]
+            },
+            "description": "Get strategic scoring and ABC classification"
+          },
+          "response": []
+        },
+        {
+          "name": "Get Comparative KPI",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{base_url}}/products/{{product_id}}/kpis/comparative",
+              "host": ["{{base_url}}"],
+              "path": ["products", "{{product_id}}", "kpis", "comparative"]
+            },
+            "description": "Get performance vs category/supplier"
+          },
+          "response": []
+        },
+        {
+          "name": "Get Price Evolution KPI",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{base_url}}/products/{{product_id}}/kpis/price-evolution",
+              "host": ["{{base_url}}"],
+              "path": ["products", "{{product_id}}", "kpis", "price-evolution"]
+            },
+            "description": "Get historical price data (buying, selling, margin)"
+          },
+          "response": []
+        }
+      ],
+      "description": "Product analytics and KPI endpoints"
+    },
+    {
+      "name": "Health Check",
+      "request": {
+        "method": "GET",
+        "header": [],
+        "url": {
+          "raw": "{{base_url}}/health",
+          "host": ["{{base_url}}"],
+          "path": ["health"]
+        },
+        "description": "API health check"
+      },
+      "response": []
+    },
+    {
+      "name": "Swagger UI",
+      "request": {
+        "method": "GET",
+        "header": [],
+        "url": {
+          "raw": "{{base_url}}/swagger-ui",
+          "host": ["{{base_url}}"],
+          "path": ["swagger-ui"]
+        },
+        "description": "Open Swagger UI in browser"
+      },
+      "response": []
+    }
+  ]
+}
