@@ -3,13 +3,14 @@ use chrono::{Duration, Utc};
 use jsonwebtoken::{decode, encode, Algorithm, DecodingKey, EncodingKey, Header, Validation};
 use once_cell::sync::OnceCell;
 use serde::{Deserialize, Serialize};
+use uuid::Uuid;
 
 static JWT_SECRET: OnceCell<String> = OnceCell::new();
 const DEFAULT_EXPIRATION_HOURS: i64 = 24;
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct Claims {
-    pub sub: String,
+    pub commerce_id: Option<Uuid>,
     pub email: String,
     pub role: String,
     pub exp: usize,
@@ -71,13 +72,18 @@ pub fn verify_password(password: &str, hashed: &str) -> Result<bool, SecurityErr
     Ok(verify(password, hashed)?)
 }
 
-pub fn generate_jwt(user_id: i32, email: &str, role: &str) -> Result<String, SecurityError> {
+pub fn generate_jwt(
+    commerce_id: Option<Uuid>,
+    email: &str,
+    role: &str,
+) -> Result<String, SecurityError> {
+
     let expiration = Utc::now()
         .checked_add_signed(Duration::hours(DEFAULT_EXPIRATION_HOURS))
         .expect("failed to calculate JWT expiration");
 
     let claims = Claims {
-        sub: user_id.to_string(),
+        commerce_id,
         email: email.to_string(),
         role: role.to_string(),
         exp: expiration.timestamp() as usize,
@@ -96,10 +102,12 @@ pub fn generate_jwt(user_id: i32, email: &str, role: &str) -> Result<String, Sec
 pub fn validate_jwt(token: &str) -> Result<Claims, SecurityError> {
     let secret = jwt_secret()?;
     let validation = Validation::new(Algorithm::HS256);
+
     let token_data = decode::<Claims>(
         token,
         &DecodingKey::from_secret(secret.as_bytes()),
         &validation,
     )?;
+
     Ok(token_data.claims)
 }

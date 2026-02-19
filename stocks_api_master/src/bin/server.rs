@@ -1,5 +1,5 @@
 use anyhow::Result;
-use axum::{http::Method, middleware::from_fn, routing::get, Router};
+use axum::{http::Method, middleware::{from_fn, from_fn_with_state}, routing::get, Router};
 use dotenvy::dotenv;
 use sqlx::postgres::PgPoolOptions;
 use std::env;
@@ -30,8 +30,7 @@ async fn main() -> Result<()> {
         "OK"
     }
 
-    // 🔐 Routes protégées MASTER
-
+    // 🔐 Routes protégées MASTER (platform admin uniquement)
     let protected_master_routes = Router::new()
         .nest(
             "/admin/tenants",
@@ -40,6 +39,17 @@ async fn main() -> Result<()> {
         .layer(from_fn(features::auth::middleware::require_platform_admin))
         .layer(from_fn(features::auth::middleware::require_auth));
 
+    // 🔐 Routes protégées TENANT (commerce)
+    let protected_tenant_routes = Router::new()
+        .nest(
+            "/api",
+            features::tenants::router::tenant_routes(pool.clone()),
+        )
+        .layer(from_fn_with_state(
+            pool.clone(),
+            features::auth::middleware::require_tenant_match_subdomain,
+        ))
+        .layer(from_fn(features::auth::middleware::require_auth));
 
     let cors = CorsLayer::new()
         .allow_origin([
@@ -64,6 +74,7 @@ async fn main() -> Result<()> {
         )
         .nest("/auth", features::auth::router::auth_routes(pool.clone()))
         .merge(protected_master_routes)
+        .merge(protected_tenant_routes)
         .layer(cors);
 
     let listener = TcpListener::bind("0.0.0.0:8080").await?;

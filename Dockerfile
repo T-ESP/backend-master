@@ -3,20 +3,25 @@
 ###############################################################################
 FROM rust:1.82 AS builder
 
-# 1) on place la racine du repo
 WORKDIR /build
 
-# 2) on copie TOUT le contexte (pas seulement stocks_api/)
-#    ainsi le chemin reste identique entre host et conteneur
+# Copier tout le projet
 COPY . .
 
-# 3) on passe dans le crate Rust
-WORKDIR /build/stocks_api
+# Aller dans le vrai crate Rust
+WORKDIR /build/stocks_api_master
 
-# 4) dépendances système
-RUN apt-get update && apt-get install -y pkg-config libpq-dev
+# Dépendances système
+RUN apt-get update && apt-get install -y pkg-config libpq-dev curl
 
-# 5) compilation des trois exécutables
+# Pré-télécharger Swagger UI pour éviter l'échec réseau pendant cargo build
+RUN curl -L --retry 5 --retry-delay 3 \
+    -o /tmp/v5.17.12.zip \
+    https://github.com/swagger-api/swagger-ui/archive/refs/tags/v5.17.12.zip
+
+ENV SWAGGER_UI_DOWNLOAD_URL=file:///tmp/v5.17.12.zip
+
+# Compilation des binaires
 ENV SQLX_OFFLINE=true
 RUN cargo build --release --bin migrate --bin server --bin seed
 
@@ -25,19 +30,14 @@ RUN cargo build --release --bin migrate --bin server --bin seed
 ###############################################################################
 FROM debian:bookworm-slim
 
-# Dépendances runtime pour tokio-postgres
 RUN apt-get update && apt-get install -y libpq5 ca-certificates \
  && rm -rf /var/lib/apt/lists/*
 
-# Dossier d’exécution
 WORKDIR /app
 
-# Copie des binaires compilés
-COPY --from=builder /build/stocks_api/target/release/migrate /app/migrate
-COPY --from=builder /build/stocks_api/target/release/server  /app/server
-COPY --from=builder /build/stocks_api/target/release/seed    /app/seed
+# Copier les binaires compilés
+COPY --from=builder /build/stocks_api_master/target/release/migrate /app/migrate
+COPY --from=builder /build/stocks_api_master/target/release/server  /app/server
+COPY --from=builder /build/stocks_api_master/target/release/seed    /app/seed
 
-# Port exposé pour le serveur web
 EXPOSE 8080
-
-# Pas d’ENTRYPOINT ici car la commande est définie dans docker-compose

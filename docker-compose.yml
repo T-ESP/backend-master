@@ -28,16 +28,16 @@ services:
       DATABASE_URL: postgres://user:pass@db:5432/stocks_master
     restart: "no"
 
-  seed:
-    build: .
-    depends_on:
-      migrate:
-        condition: service_completed_successfully
-    working_dir: /app
-    command: /app/seed
-    environment:
-      DATABASE_URL: postgres://user:pass@db:5432/stocks_master
-    restart: "no"
+  # seed:
+  #   build: .
+  #   depends_on:
+  #     migrate:
+  #       condition: service_completed_successfully
+  #   working_dir: /app
+  #   command: /app/seed
+  #   environment:
+  #     DATABASE_URL: postgres://user:pass@db:5432/stocks_master
+  #   restart: "no"
 
   web:
     build: .

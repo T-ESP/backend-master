@@ -5,7 +5,7 @@ use crate::common::security::{self, SecurityError};
 
 #[derive(Debug)]
 pub struct AuthenticatedUser {
-    pub id: String,
+    pub commerce_id: Option<Uuid>,
     pub email: String,
     pub role: String,
 }
@@ -36,7 +36,7 @@ pub async fn authenticate_user(
     password: &str,
 ) -> Result<AuthenticatedUser, AuthServiceError> {
 
-    // 1️⃣ Vérifie platform_admin
+    // 1️⃣ Platform admin
     if let Some(row) = sqlx::query(
         r#"
         SELECT id, email, password_hash
@@ -48,13 +48,12 @@ pub async fn authenticate_user(
         .fetch_optional(pool)
         .await?
     {
-        let id: i32 = row.get("id");
         let email_db: String = row.get("email");
         let password_hash: String = row.get("password_hash");
 
         if security::verify_password(password, &password_hash)? {
             return Ok(AuthenticatedUser {
-                id: id.to_string(),
+                commerce_id: None,
                 email: email_db,
                 role: "platform_admin".to_string(),
             });
@@ -63,7 +62,7 @@ pub async fn authenticate_user(
         }
     }
 
-    // 2️⃣ Vérifie commerce
+    // 2️⃣ Commerce (tenant)
     if let Some(row) = sqlx::query(
         r#"
         SELECT id, email, password_hash
@@ -81,9 +80,9 @@ pub async fn authenticate_user(
 
         if security::verify_password(password, &password_hash)? {
             return Ok(AuthenticatedUser {
-                id: id.to_string(),
+                commerce_id: Some(id),
                 email: email_db,
-                role: "tenant".to_string(),
+                role: "commerce".to_string(),
             });
         } else {
             return Err(AuthServiceError::InvalidCredentials);
@@ -99,6 +98,7 @@ pub async fn register_platform_admin(
     password: &str,
 ) -> Result<(), AuthServiceError> {
 
+    // Vérifier si email déjà existant
     let existing = sqlx::query(
         "SELECT id FROM platform_admins WHERE email = $1"
     )
@@ -110,7 +110,8 @@ pub async fn register_platform_admin(
         return Err(AuthServiceError::EmailAlreadyExists);
     }
 
-    let hashed_password = security::hash_password(password)?;
+    // Hash du mot de passe via ton module security
+    let hashed = security::hash_password(password)?;
 
     sqlx::query(
         r#"
@@ -119,7 +120,7 @@ pub async fn register_platform_admin(
         "#
     )
         .bind(email)
-        .bind(hashed_password)
+        .bind(hashed)
         .execute(pool)
         .await?;
 

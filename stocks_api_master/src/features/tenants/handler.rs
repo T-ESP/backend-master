@@ -1,7 +1,8 @@
 use axum::{
-    extract::{State, Request},
+    extract::State,
     http::StatusCode,
     response::{IntoResponse, Response},
+    Extension,
     Json,
 };
 use sqlx::PgPool;
@@ -10,11 +11,11 @@ use crate::common::{
     error_codes,
     responses::{ErrorResponse, SuccessResponse},
 };
-use crate::features::auth::middleware::get_claims;
+use crate::common::security::Claims;
 
 use super::{
     dto::{CreateTenantRequest, TenantResponse},
-    services::{self, TenantServiceError},
+    service::{self, TenantServiceError},
 };
 
 #[utoipa::path(
@@ -31,23 +32,9 @@ use super::{
 )]
 pub async fn create_tenant(
     State(pool): State<PgPool>,
-    req: Request,
+    Extension(claims): Extension<Claims>,
     Json(payload): Json<CreateTenantRequest>,
 ) -> Response {
-
-    // 🔐 Vérifie rôle
-    let claims = match get_claims(&req) {
-        Some(c) => c,
-        None => {
-            return (
-                StatusCode::UNAUTHORIZED,
-                Json(ErrorResponse::new(
-                    error_codes::UNAUTHORIZED.to_string(),
-                    "Unauthorized".to_string(),
-                )),
-            ).into_response()
-        }
-    };
 
     if claims.role != "platform_admin" {
         return (
@@ -59,18 +46,17 @@ pub async fn create_tenant(
         ).into_response();
     }
 
-    match services::create_tenant(
+    match service::create_tenant(
         &pool,
-        payload.name,
-        payload.slug,
-        payload.email,
-        payload.phone,
-        payload.address,
-        payload.siret,
+        payload.name.clone(),
+        payload.slug.clone(),
+        payload.email.clone(),
+        payload.phone.clone(),
+        payload.address.clone(),
+        payload.siret.clone(),
     ).await {
 
         Ok(created) => {
-
             let response = TenantResponse {
                 id: created.id,
                 name: payload.name,

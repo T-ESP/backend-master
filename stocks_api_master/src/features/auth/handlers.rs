@@ -5,6 +5,7 @@ use axum::{
     Json,
 };
 use sqlx::PgPool;
+use uuid::Uuid;
 
 use crate::common::{
     error_codes,
@@ -13,7 +14,7 @@ use crate::common::{
 };
 
 use super::{
-    dto::{LoginRequest, LoginResponse, RegisterRequest},
+    dto::{LoginRequest, LoginResponse, AdminRegisterRequest},
     services::{self, AuthServiceError},
 };
 
@@ -35,7 +36,13 @@ pub async fn login(
 
     match services::authenticate_user(&pool, &payload.email, &payload.password).await {
         Ok(user) => {
-            match security::generate_jwt(&user.id, &user.email, &user.role) {
+
+            // 🔐 JWT aligné SaaS commerce
+            match security::generate_jwt(
+                user.commerce_id,
+                &user.email,
+                &user.role,
+            ) {
                 Ok(token) => (
                     StatusCode::OK,
                     Json(SuccessResponse::new(
@@ -55,6 +62,7 @@ pub async fn login(
                     ).into_response()
                 }
             }
+
         }
 
         Err(error) => {
@@ -101,7 +109,7 @@ pub async fn login(
     post,
     path = "/auth/register",
     tag = "auth",
-    request_body = RegisterRequest,
+    request_body = AdminRegisterRequest,
     responses(
         (status = 201, description = "Platform admin registered successfully", body = inline(SuccessResponse<String>)),
         (status = 409, description = "Email already exists", body = ErrorResponse),
@@ -110,7 +118,7 @@ pub async fn login(
 )]
 pub async fn register(
     State(pool): State<PgPool>,
-    Json(payload): Json<RegisterRequest>,
+    Json(payload): Json<AdminRegisterRequest>,
 ) -> Response {
 
     match services::register_platform_admin(
