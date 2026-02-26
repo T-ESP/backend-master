@@ -7,10 +7,6 @@ services:
     networks:
       - monitoring_net
 
-  seed:
-    networks:
-      - monitoring_net
-
   web:
     networks:
       - monitoring_net
@@ -20,6 +16,11 @@ services:
       - "traefik.http.routers.api.entrypoints=websecure"
       - "traefik.http.routers.api.tls.certresolver=myresolver"
       - "traefik.http.services.api.loadbalancer.server.port=8080"
+
+      - "traefik.http.routers.tenant.rule=HostRegexp(`{tenant:[a-z0-9-]+}.stock-s.fr`)"
+      - "traefik.http.routers.tenant.entrypoints=websecure"
+      - "traefik.http.routers.tenant.tls.certresolver=myresolver"
+      - "traefik.http.routers.tenant.service=api"
 
 networks:
   monitoring_net:
