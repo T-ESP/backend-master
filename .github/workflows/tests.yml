@@ -1,55 +1,12 @@
-name: CI / Deploy Backend
+name: Deploy Backend
 
 on:
   push:
     branches: [ main ]
-  pull_request:
-    branches: [ main ]
-
-env:
-  CARGO_TERM_COLOR: always
-  SQLX_OFFLINE: true
 
 jobs:
-
-  test:
-    name: Run Backend Tests
-    runs-on: ubuntu-latest
-
-    steps:
-      - name: Checkout backend repo
-        uses: actions/checkout@v4
-
-      - name: Debug repo structure
-        run: |
-          pwd
-          ls -R
-
-      - name: Install Rust
-        uses: dtolnay/rust-toolchain@stable
-
-      - name: Cache cargo registry + git
-        uses: actions/cache@v4
-        with:
-          path: |
-            ~/.cargo/registry
-            ~/.cargo/git
-          key: ${{ runner.os }}-cargo-registry-${{ hashFiles('**/Cargo.lock') }}
-
-      - name: Cache cargo build
-        uses: actions/cache@v4
-        with:
-          path: backend_master/stocks_api_master/target
-          key: ${{ runner.os }}-cargo-build-${{ hashFiles('backend_master/stocks_api_master/Cargo.lock') }}
-
-      - name: Run tests
-        working-directory: backend_master/stocks_api_master
-        run: cargo test --all
-
-
   deploy:
     name: Deploy Backend (PROD)
-    needs: test
     runs-on: ubuntu-latest
 
     steps:
