@@ -40,7 +40,9 @@ jobs:
     name: Deploy Backend (PROD)
     needs: test
     runs-on: ubuntu-latest
-    if: github.ref == 'refs/heads/main'
+
+    # IMPORTANT : pas besoin du if ici
+    # car le workflow ne se déclenche que sur main
 
     steps:
       - name: Checkout backend repo
@@ -53,14 +55,13 @@ jobs:
           token: ${{ secrets.GH_TOKEN }}
           path: devops
 
-      - name: Install Ansible and dependencies
+      - name: Install Ansible
         run: |
           sudo apt update -y
           sudo apt install -y ansible python3-pip
 
       - name: Install Ansible docker collection
-        run: |
-          ansible-galaxy collection install community.docker
+        run: ansible-galaxy collection install community.docker
 
       - name: Setup SSH private key
         run: |
