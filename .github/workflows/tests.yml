@@ -1,20 +1,45 @@
-name: Tests
+name: CI / Deploy Backend
 
 on:
   push:
-    branches: [ main, dev, product_status ]
+    branches: [ main ]
   pull_request:
-    branches: [ main, dev ]
+    branches: [ main ]
 
 env:
   CARGO_TERM_COLOR: always
   SQLX_OFFLINE: true
 
 jobs:
-  deploy:
-    name: Deploy Backend
+
+  test:
+    name: Run Backend Tests
     runs-on: ubuntu-latest
-    if: github.ref == 'refs/heads/dev'
+
+    steps:
+      - name: Checkout backend repo
+        uses: actions/checkout@v4
+
+      - name: Install Rust
+        uses: dtolnay/rust-toolchain@stable
+
+      - name: Cache cargo
+        uses: actions/cache@v4
+        with:
+          path: |
+            ~/.cargo/registry
+            ~/.cargo/git
+            target
+          key: ${{ runner.os }}-cargo-${{ hashFiles('**/Cargo.lock') }}
+
+      - name: Run tests
+        run: cargo test --all
+
+  deploy:
+    name: Deploy Backend (PROD)
+    needs: test
+    runs-on: ubuntu-latest
+    if: github.ref == 'refs/heads/main'
 
     steps:
       - name: Checkout backend repo
@@ -50,5 +75,3 @@ jobs:
             -e "gh_token=${{ secrets.GH_TOKEN }}"
         env:
           ANSIBLE_HOST_KEY_CHECKING: False
-
-#######
