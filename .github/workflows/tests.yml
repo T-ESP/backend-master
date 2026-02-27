@@ -29,10 +29,11 @@ jobs:
           path: |
             ~/.cargo/registry
             ~/.cargo/git
-            target
-          key: ${{ runner.os }}-cargo-${{ hashFiles('**/Cargo.lock') }}
+            backend_master/stocks_api_master/target
+          key: ${{ runner.os }}-cargo-${{ hashFiles('backend_master/stocks_api_master/Cargo.lock') }}
 
       - name: Run tests
+        working-directory: backend_master/stocks_api_master
         run: cargo test --all
 
   deploy:
