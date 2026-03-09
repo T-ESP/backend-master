@@ -48,7 +48,7 @@ services:
       DATABASE_URL: postgres://user:pass@db:5432/stocks_master
       JWT_SECRET: zf2nrOa8bEZ4QH1wioy5N0VJj9sevIG3BApqCSKTDgmRYldh7F6UuMPxLXtkWc
     ports:
-      - "8090:8080"
+      - "8091:8080"
     restart: unless-stopped
 
   pgadmin:
