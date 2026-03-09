@@ -25,4 +25,4 @@ Thumbs.db
 
 
 .env
-stocks_api_master/Cargo.lock
+#stocks_api_master/Cargo.lock

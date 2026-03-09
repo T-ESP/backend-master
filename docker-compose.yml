@@ -7,8 +7,6 @@ services:
       POSTGRES_USER: user
       POSTGRES_PASSWORD: pass
       POSTGRES_DB: stocks_master
-    ports:
-      - "5432:5432"
     volumes:
       - db_data:/var/lib/postgresql/data
     healthcheck:
@@ -27,17 +25,6 @@ services:
     environment:
       DATABASE_URL: postgres://user:pass@db:5432/stocks_master
     restart: "no"
-
-  # seed:
-  #   build: .
-  #   depends_on:
-  #     migrate:
-  #       condition: service_completed_successfully
-  #   working_dir: /app
-  #   command: /app/seed
-  #   environment:
-  #     DATABASE_URL: postgres://user:pass@db:5432/stocks_master
-  #   restart: "no"
 
   web:
     build: .
