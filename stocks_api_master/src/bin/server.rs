@@ -34,17 +34,13 @@ async fn main() -> Result<()> {
     let protected_master_routes = Router::new()
         .nest(
             "/admin/tenants",
-            features::tenants::router::tenant_routes(pool.clone()),
+            features::tenants::router::tenant_admin_routes(pool.clone()),
         )
         .layer(from_fn(features::auth::middleware::require_platform_admin))
         .layer(from_fn(features::auth::middleware::require_auth));
 
-    // 🔐 Routes protégées TENANT (commerce)
+    // 🔐 Routes protégées TENANT (commerce) — à compléter avec les routes métier
     let protected_tenant_routes = Router::new()
-        .nest(
-            "/api",
-            features::tenants::router::tenant_routes(pool.clone()),
-        )
         .layer(from_fn_with_state(
             pool.clone(),
             features::auth::middleware::require_tenant_match_subdomain,
@@ -74,6 +70,8 @@ async fn main() -> Result<()> {
                 .url("/api-docs/openapi.json", ApiDoc::openapi()),
         )
         .nest("/auth", features::auth::router::auth_routes(pool.clone()))
+        // 🌐 Route publique — vérification tenant pour Angular
+        .merge(features::tenants::router::tenant_public_routes(pool.clone()))
         .merge(protected_master_routes)
         .merge(protected_tenant_routes)
         .layer(cors);

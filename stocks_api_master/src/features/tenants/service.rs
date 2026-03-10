@@ -1,13 +1,16 @@
-use sqlx::{PgPool};
+use sqlx::PgPool;
 use uuid::Uuid;
 use rand::{distributions::Alphanumeric, Rng};
 
 use crate::common::security;
+use super::model::Tenant;
+use super::repository;
 
 #[derive(Debug)]
 pub enum TenantServiceError {
     SlugAlreadyExists,
     EmailAlreadyExists,
+    NotFound,
     Database(sqlx::Error),
     Security(security::SecurityError),
 }
@@ -40,7 +43,6 @@ pub async fn create_tenant(
     siret: Option<String>,
 ) -> Result<CreatedTenant, TenantServiceError> {
 
-    // 🔎 Vérifie unicité slug
     let existing_slug = sqlx::query(
         "SELECT id FROM commerces WHERE slug = $1"
     )
@@ -52,7 +54,6 @@ pub async fn create_tenant(
         return Err(TenantServiceError::SlugAlreadyExists);
     }
 
-    // 🔎 Vérifie unicité email
     let existing_email = sqlx::query(
         "SELECT id FROM commerces WHERE email = $1"
     )
@@ -64,7 +65,6 @@ pub async fn create_tenant(
         return Err(TenantServiceError::EmailAlreadyExists);
     }
 
-    // 🔐 Génère mot de passe aléatoire
     let generated_password: String = rand::thread_rng()
         .sample_iter(&Alphanumeric)
         .take(12)
@@ -102,4 +102,27 @@ pub async fn create_tenant(
         email,
         generated_password,
     })
+}
+
+pub async fn get_all_tenants(pool: &PgPool) -> Result<Vec<Tenant>, TenantServiceError> {
+    let tenants = repository::find_all(pool).await?;
+    Ok(tenants)
+}
+
+pub async fn get_tenant_by_id(pool: &PgPool, id: Uuid) -> Result<Tenant, TenantServiceError> {
+    let tenant = repository::find_by_id(pool, id).await?;
+    tenant.ok_or(TenantServiceError::NotFound)
+}
+
+pub async fn get_tenant_by_slug(pool: &PgPool, slug: &str) -> Result<Tenant, TenantServiceError> {
+    let tenant = repository::find_by_slug(pool, slug).await?;
+    tenant.ok_or(TenantServiceError::NotFound)
+}
+
+pub async fn delete_tenant(pool: &PgPool, id: Uuid) -> Result<(), TenantServiceError> {
+    let deleted = repository::delete(pool, id).await?;
+    if !deleted {
+        return Err(TenantServiceError::NotFound);
+    }
+    Ok(())
 }
