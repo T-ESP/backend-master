@@ -1,5 +1,5 @@
 use anyhow::Result;
-use axum::{http::Method, middleware::{from_fn, from_fn_with_state}, routing::get, Router};
+use axum::{http::{Method, header, HeaderValue}, middleware::{from_fn, from_fn_with_state}, routing::get, Router};
 use dotenvy::dotenv;
 use sqlx::postgres::PgPoolOptions;
 use std::env;
@@ -8,7 +8,7 @@ use tokio::net::TcpListener;
 use stocks_api::{common::security, features};
 use stocks_api::openapi::ApiDoc;
 
-use tower_http::cors::{Any, CorsLayer};
+use tower_http::cors::CorsLayer;
 use utoipa::OpenApi;
 use utoipa_swagger_ui::SwaggerUi;
 
@@ -48,12 +48,20 @@ async fn main() -> Result<()> {
         .layer(from_fn(features::auth::middleware::require_auth));
 
     let cors = CorsLayer::new()
-        .allow_origin([
-            "http://localhost:4200".parse().unwrap(),
-            "http://localhost:5173".parse().unwrap(),
-            "http://localhost:5174".parse().unwrap(),
-            "https://stock-s.fr".parse().unwrap(),
-        ])
+        .allow_origin(tower_http::cors::AllowOrigin::predicate(
+            |origin: &HeaderValue, _| {
+                origin
+                    .to_str()
+                    .map(|s| {
+                        s == "http://localhost:4200"
+                            || s == "http://localhost:5173"
+                            || s == "http://localhost:5174"
+                            || s == "https://stock-s.fr"
+                            || s.ends_with(".stock-s.fr")
+                    })
+                    .unwrap_or(false)
+            },
+        ))
         .allow_methods([
             Method::GET,
             Method::POST,
@@ -61,7 +69,7 @@ async fn main() -> Result<()> {
             Method::DELETE,
             Method::OPTIONS,
         ])
-        .allow_headers(Any);
+        .allow_headers([header::CONTENT_TYPE, header::AUTHORIZATION]);
 
     let app = Router::new()
         .route("/health", get(health))
