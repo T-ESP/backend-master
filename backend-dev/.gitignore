@@ -1,0 +1,28 @@
+# === Rust / Cargo ===
+/target/
+/**/target/
+**/*.rs.bk
+
+# === Fichiers temporaires ===
+*.log
+*.tmp
+*.swp
+*.swo
+*.DS_Store
+Thumbs.db
+
+# === Docker / PostgreSQL ===
+/db_data/
+/pgadmin_data/
+
+# === Environment variables ===
+.env
+
+# === VSCode / IDEs ===
+.vscode/
+.idea/
+*.code-workspace
+
+
+.env
+stocks_api/Cargo.lock

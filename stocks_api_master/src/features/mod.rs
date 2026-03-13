@@ -1,2 +1,13 @@
 pub mod auth;
 pub mod tenants;
+pub mod products;
+pub mod suppliers;
+pub mod stocks;
+pub mod orders;
+pub mod sales;
+pub mod users;
+pub mod ai_insights;
+pub mod alerts;
+pub mod ai_predictions;
+pub mod global_kpis;
+pub mod restocks;

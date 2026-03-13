@@ -1,0 +1,58 @@
+{
+  "db_name": "PostgreSQL",
+  "query": "SELECT id_sup as id, name_sup, email_sup, phone_sup, address_sup, created_at, updated_at FROM supplier_sup WHERE email_sup = $1",
+  "describe": {
+    "columns": [
+      {
+        "ordinal": 0,
+        "name": "id",
+        "type_info": "Int4"
+      },
+      {
+        "ordinal": 1,
+        "name": "name_sup",
+        "type_info": "Varchar"
+      },
+      {
+        "ordinal": 2,
+        "name": "email_sup",
+        "type_info": "Varchar"
+      },
+      {
+        "ordinal": 3,
+        "name": "phone_sup",
+        "type_info": "Varchar"
+      },
+      {
+        "ordinal": 4,
+        "name": "address_sup",
+        "type_info": "Varchar"
+      },
+      {
+        "ordinal": 5,
+        "name": "created_at",
+        "type_info": "Timestamp"
+      },
+      {
+        "ordinal": 6,
+        "name": "updated_at",
+        "type_info": "Timestamp"
+      }
+    ],
+    "parameters": {
+      "Left": [
+        "Text"
+      ]
+    },
+    "nullable": [
+      false,
+      false,
+      false,
+      false,
+      false,
+      true,
+      true
+    ]
+  },
+  "hash": "c1c333ed19e6fc231924eb499e9f9e941e0593ee740b8d1d7e52ceed82680ddc"
+}

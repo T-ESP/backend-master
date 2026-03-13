@@ -1,0 +1,9 @@
+pub const VALIDATION_ERROR: &str = "VALIDATION_ERROR";
+pub const DATABASE_ERROR: &str = "DATABASE_ERROR";
+pub const NOT_FOUND: &str = "NOT_FOUND";
+pub const ALREADY_EXISTS: &str = "ALREADY_EXISTS";
+pub const UNAUTHORIZED: &str = "UNAUTHORIZED";
+pub const FORBIDDEN: &str = "FORBIDDEN";
+pub const INTERNAL_SERVER_ERROR: &str = "INTERNAL_SERVER_ERROR";
+pub const INVALID_INPUT: &str = "INVALID_INPUT";
+pub const MISSING_FIELD: &str = "MISSING_FIELD";

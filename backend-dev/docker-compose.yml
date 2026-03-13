@@ -1,0 +1,86 @@
+services:
+  db:
+    image: postgres:16-alpine
+    environment:
+      POSTGRES_USER: user
+      POSTGRES_PASSWORD: pass
+      POSTGRES_DB: stocks
+    ports:
+      - "5432:5432"
+    volumes:
+      - db_data:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U user -d stocks"]
+      interval: 5s
+      timeout: 3s
+      retries: 20
+
+  migrate:
+    build: .
+    depends_on:
+      db:
+        condition: service_healthy
+    working_dir: /app
+    command: /app/migrate
+    environment:
+      DATABASE_URL: postgres://user:pass@db:5432/stocks
+    restart: "no"
+
+  seed:
+    build: .
+    depends_on:
+      migrate:
+        condition: service_completed_successfully
+    working_dir: /app
+    command: /app/seed
+    environment:
+      DATABASE_URL: postgres://user:pass@db:5432/stocks
+    restart: "no"
+
+  web:
+    build: .
+    depends_on:
+      migrate:
+        condition: service_completed_successfully
+    working_dir: /app
+    command: /app/server
+    environment:
+      DATABASE_URL: postgres://user:pass@db:5432/stocks
+      JWT_SECRET: zf2nrOa8bEZ4QH1wioy5N0VJj9sevIG3BApqCSKTDgmRYldh7F6UuMPxLXtkWc
+    ports:
+      - "8090:8080"
+    restart: unless-stopped
+
+  ai-service:
+    build: ./ai-service
+    depends_on:
+      seed:
+        condition: service_completed_successfully
+    environment:
+      DATABASE_URL: postgres://user:pass@db:5432/stocks
+      CRON_SCHEDULE: "0 2 * * *"
+      RUN_ON_STARTUP: "true"
+      AI_SERVICE_PORT: "8001"
+    ports:
+      - "8001:8001"
+    volumes:
+      - ai_models:/app/saved_models
+    restart: unless-stopped
+
+  pgadmin:
+    image: dpage/pgadmin4:8
+    depends_on:
+      db:
+        condition: service_healthy
+    environment:
+      PGADMIN_DEFAULT_EMAIL: admin@example.com
+      PGADMIN_DEFAULT_PASSWORD: admin
+    ports:
+      - "5050:80"
+    volumes:
+      - pgadmin_data:/var/lib/pgadmin
+
+volumes:
+  db_data:
+  pgadmin_data:
+  ai_models:

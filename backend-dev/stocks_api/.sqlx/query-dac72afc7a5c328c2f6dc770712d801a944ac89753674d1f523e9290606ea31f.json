@@ -1,0 +1,18 @@
+{
+  "db_name": "PostgreSQL",
+  "query": "UPDATE supplier_sup SET name_sup = COALESCE($1, name_sup), email_sup = COALESCE($2, email_sup), phone_sup = COALESCE($3, phone_sup), address_sup = COALESCE($4, address_sup), updated_at = NOW() WHERE id_sup = $5",
+  "describe": {
+    "columns": [],
+    "parameters": {
+      "Left": [
+        "Varchar",
+        "Varchar",
+        "Varchar",
+        "Varchar",
+        "Int4"
+      ]
+    },
+    "nullable": []
+  },
+  "hash": "dac72afc7a5c328c2f6dc770712d801a944ac89753674d1f523e9290606ea31f"
+}

@@ -1,0 +1,17 @@
+{
+  "db_name": "PostgreSQL",
+  "query": "UPDATE users_usr SET firstname_usr = COALESCE($1, firstname_usr), lastname_usr = COALESCE($2, lastname_usr), phone_usr = COALESCE($3, phone_usr) WHERE id_usr = $4",
+  "describe": {
+    "columns": [],
+    "parameters": {
+      "Left": [
+        "Varchar",
+        "Varchar",
+        "Varchar",
+        "Int4"
+      ]
+    },
+    "nullable": []
+  },
+  "hash": "c8f9a120056d7901d3cfb971f1b181708ae2e05287a87bfac66bd52da6bf65d2"
+}
