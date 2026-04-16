@@ -136,6 +136,28 @@ pub async fn create_tenant(
 
     tenant_pool.close().await;
 
+    // Run the seed binary against the new tenant database
+    let seed_binary = std::env::current_exe()
+        .ok()
+        .and_then(|p| p.parent().map(|d| d.join("seed")))
+        .unwrap_or_else(|| std::path::PathBuf::from("/app/seed"));
+
+    let seed_result = tokio::process::Command::new(&seed_binary)
+        .env("DATABASE_URL", &tenant_url)
+        .env("SEED_RESET", "0")
+        .output()
+        .await
+        .map_err(|e| TenantServiceError::DatabaseProvisioning(
+            format!("Failed to launch seed for '{}': {}", db_name, e)
+        ))?;
+
+    if !seed_result.status.success() {
+        let stderr = String::from_utf8_lossy(&seed_result.stderr);
+        return Err(TenantServiceError::DatabaseProvisioning(
+            format!("Seed failed for '{}': {}", db_name, stderr)
+        ));
+    }
+
     Ok(CreatedTenant {
         id,
         email,
