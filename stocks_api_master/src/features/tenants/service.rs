@@ -101,8 +101,8 @@ pub async fn create_tenant(
         .execute(pool)
         .await?;
 
-    // Create the tenant database
-    sqlx::query(&format!("CREATE DATABASE \"{}\"", db_name))
+    // CREATE DATABASE cannot run as a prepared statement or inside a transaction
+    sqlx::raw_sql(&format!("CREATE DATABASE \"{}\"", db_name))
         .execute(pool)
         .await
         .map_err(|e| TenantServiceError::DatabaseProvisioning(
