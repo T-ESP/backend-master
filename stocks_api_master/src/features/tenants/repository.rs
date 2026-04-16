@@ -35,6 +35,42 @@ pub async fn find_by_slug(pool: &PgPool, slug: &str) -> Result<Option<Tenant>, s
     Ok(tenant)
 }
 
+pub async fn update(
+    pool: &PgPool,
+    id: Uuid,
+    name: Option<String>,
+    email: Option<String>,
+    phone: Option<String>,
+    address: Option<String>,
+    siret: Option<String>,
+    status: Option<String>,
+) -> Result<Option<Tenant>, sqlx::Error> {
+    let tenant = sqlx::query_as::<_, Tenant>(
+        r#"
+        UPDATE commerces SET
+            name    = COALESCE($2, name),
+            email   = COALESCE($3, email),
+            phone   = COALESCE($4, phone),
+            address = COALESCE($5, address),
+            siret   = COALESCE($6, siret),
+            status  = COALESCE($7, status)
+        WHERE id = $1
+        RETURNING *
+        "#
+    )
+        .bind(id)
+        .bind(name)
+        .bind(email)
+        .bind(phone)
+        .bind(address)
+        .bind(siret)
+        .bind(status)
+        .fetch_optional(pool)
+        .await?;
+
+    Ok(tenant)
+}
+
 pub async fn delete(pool: &PgPool, id: Uuid) -> Result<bool, sqlx::Error> {
     let result = sqlx::query(
         "DELETE FROM commerces WHERE id = $1"

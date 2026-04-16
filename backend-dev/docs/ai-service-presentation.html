@@ -1,0 +1,2026 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>AI Service — Technical Presentation</title>
+<style>
+  :root {
+    --bg: #F7F5F0;
+    --bg-alt: #EDEAE3;
+    --text: #1A1715;
+    --text-muted: #7A756E;
+    --border: #D8D4CC;
+    --accent: #C24D2C;
+    --green: #2D6A4F;
+    --amber: #A3580A;
+    --rose: #9F1239;
+    --violet: #6D28D9;
+    --cyan: #0E7490;
+    --red: #B91C1C;
+    --serif: Georgia, 'Times New Roman', 'Palatino Linotype', serif;
+    --sans: 'Segoe UI', system-ui, -apple-system, sans-serif;
+    --mono: Consolas, 'Courier New', monospace;
+  }
+
+  *, *::before, *::after { margin: 0; padding: 0; box-sizing: border-box; }
+
+  html {
+    scroll-snap-type: y mandatory;
+    scroll-behavior: smooth;
+    overflow-x: hidden;
+  }
+
+  body {
+    font-family: var(--sans);
+    background: var(--bg);
+    color: var(--text);
+    line-height: 1.6;
+    -webkit-font-smoothing: antialiased;
+  }
+
+  /* Subtle paper grain overlay */
+  body::after {
+    content: '';
+    position: fixed;
+    inset: 0;
+    background-image: url("data:image/svg+xml,%3Csvg viewBox='0 0 512 512' xmlns='http://www.w3.org/2000/svg'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.7' numOctaves='4' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23n)' opacity='0.025'/%3E%3C/svg%3E");
+    pointer-events: none;
+    z-index: 10000;
+  }
+
+  /* Progress bar */
+  #progress {
+    position: fixed;
+    top: 0;
+    left: 0;
+    height: 2px;
+    background: var(--accent);
+    z-index: 9999;
+    transition: width 0.3s ease;
+    width: 0%;
+  }
+
+  /* Navigation */
+  nav {
+    position: fixed;
+    right: 28px;
+    top: 50%;
+    transform: translateY(-50%);
+    z-index: 9998;
+    display: flex;
+    flex-direction: column;
+    gap: 12px;
+    align-items: flex-end;
+  }
+
+  nav a {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    text-decoration: none;
+    color: var(--text-muted);
+    transition: all 0.3s ease;
+  }
+
+  nav a .dot {
+    width: 8px;
+    height: 8px;
+    border-radius: 50%;
+    background: var(--border);
+    transition: all 0.3s ease;
+    flex-shrink: 0;
+  }
+
+  nav a .label {
+    font-family: var(--mono);
+    font-size: 10px;
+    letter-spacing: 0.5px;
+    text-transform: uppercase;
+    opacity: 0;
+    transform: translateX(6px);
+    transition: all 0.3s ease;
+    white-space: nowrap;
+    pointer-events: none;
+  }
+
+  nav a:hover .label,
+  nav a.active .label {
+    opacity: 1;
+    transform: translateX(0);
+  }
+
+  nav a.active .dot {
+    background: var(--accent);
+    width: 10px;
+    height: 10px;
+    box-shadow: 0 0 0 3px rgba(194, 77, 44, 0.15);
+  }
+
+  nav a:hover .dot {
+    background: var(--text-muted);
+  }
+
+  /* Sections */
+  section {
+    min-height: 100vh;
+    scroll-snap-align: start;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    padding: 60px 80px;
+    position: relative;
+    overflow: hidden;
+  }
+
+  .section-inner {
+    max-width: 1200px;
+    width: 100%;
+    position: relative;
+  }
+
+  /* Reveal animations */
+  .reveal {
+    opacity: 0;
+    transform: translateY(24px);
+    transition: opacity 0.7s ease, transform 0.7s ease;
+  }
+
+  .reveal.visible {
+    opacity: 1;
+    transform: translateY(0);
+  }
+
+  .reveal-delay-1 { transition-delay: 0.1s; }
+  .reveal-delay-2 { transition-delay: 0.2s; }
+  .reveal-delay-3 { transition-delay: 0.3s; }
+  .reveal-delay-4 { transition-delay: 0.4s; }
+  .reveal-delay-5 { transition-delay: 0.5s; }
+  .reveal-delay-6 { transition-delay: 0.6s; }
+  .reveal-delay-7 { transition-delay: 0.7s; }
+
+  /* Typography */
+  h1 {
+    font-family: var(--serif);
+    font-size: clamp(48px, 8vw, 120px);
+    font-weight: 400;
+    line-height: 0.95;
+    letter-spacing: -2px;
+  }
+
+  h2 {
+    font-family: var(--serif);
+    font-size: clamp(28px, 3.5vw, 48px);
+    font-weight: 400;
+    line-height: 1.15;
+    letter-spacing: -0.5px;
+  }
+
+  h3 {
+    font-family: var(--serif);
+    font-size: 22px;
+    font-weight: 400;
+  }
+
+  .label-sm {
+    font-family: var(--mono);
+    font-size: 11px;
+    letter-spacing: 1.5px;
+    text-transform: uppercase;
+    color: var(--text-muted);
+  }
+
+  .tag {
+    display: inline-block;
+    font-family: var(--mono);
+    font-size: 11px;
+    letter-spacing: 0.5px;
+    padding: 4px 10px;
+    border: 1px solid var(--border);
+    border-radius: 2px;
+    color: var(--text-muted);
+  }
+
+  .tag-accent {
+    border-color: currentColor;
+    color: var(--accent);
+  }
+
+  hr {
+    border: none;
+    height: 1px;
+    background: var(--border);
+    margin: 32px 0;
+  }
+
+  .thin-rule {
+    width: 48px;
+    height: 1px;
+    background: var(--accent);
+  }
+
+  /* ===== COVER ===== */
+  #cover {
+    background: var(--text);
+    color: var(--bg);
+    flex-direction: column;
+    text-align: left;
+  }
+
+  #cover .section-inner {
+    display: flex;
+    flex-direction: column;
+    gap: 32px;
+  }
+
+  #cover h1 {
+    font-size: clamp(72px, 12vw, 180px);
+    color: var(--bg);
+    letter-spacing: -4px;
+  }
+
+  #cover h1 span {
+    display: block;
+    font-size: 0.35em;
+    letter-spacing: 8px;
+    text-transform: uppercase;
+    font-family: var(--sans);
+    font-weight: 300;
+    color: rgba(247, 245, 240, 0.5);
+    margin-top: 8px;
+  }
+
+  #cover .subtitle {
+    font-family: var(--serif);
+    font-size: clamp(16px, 2vw, 22px);
+    font-style: italic;
+    color: rgba(247, 245, 240, 0.6);
+    max-width: 500px;
+    line-height: 1.5;
+  }
+
+  #cover .cover-meta {
+    display: flex;
+    gap: 32px;
+    margin-top: 40px;
+  }
+
+  #cover .cover-meta .meta-item {
+    font-family: var(--mono);
+    font-size: 11px;
+    letter-spacing: 1px;
+    text-transform: uppercase;
+    color: rgba(247, 245, 240, 0.35);
+  }
+
+  #cover .scroll-hint {
+    position: absolute;
+    bottom: 32px;
+    left: 80px;
+    font-family: var(--mono);
+    font-size: 10px;
+    letter-spacing: 2px;
+    text-transform: uppercase;
+    color: rgba(247, 245, 240, 0.25);
+    animation: pulse 2.5s ease-in-out infinite;
+  }
+
+  @keyframes pulse {
+    0%, 100% { opacity: 0.25; }
+    50% { opacity: 0.6; }
+  }
+
+  /* ===== OVERVIEW ===== */
+  #overview .section-inner {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 80px;
+    align-items: center;
+  }
+
+  #overview .overview-left p {
+    font-size: 17px;
+    color: var(--text-muted);
+    line-height: 1.75;
+    margin-top: 20px;
+  }
+
+  .question-list {
+    list-style: none;
+    margin-top: 28px;
+    display: flex;
+    flex-direction: column;
+    gap: 12px;
+  }
+
+  .question-list li {
+    font-family: var(--serif);
+    font-size: 15px;
+    font-style: italic;
+    color: var(--text);
+    padding-left: 16px;
+    border-left: 2px solid var(--border);
+    transition: border-color 0.3s;
+  }
+
+  .question-list li:hover {
+    border-left-color: var(--accent);
+  }
+
+  .question-list li em {
+    font-style: normal;
+    font-family: var(--mono);
+    font-size: 11px;
+    color: var(--accent);
+    display: block;
+    margin-top: 2px;
+  }
+
+  /* Architecture diagram */
+  .arch-diagram {
+    background: var(--bg-alt);
+    border: 1px solid var(--border);
+    padding: 40px 32px;
+    position: relative;
+  }
+
+  .arch-box {
+    border: 1px solid var(--border);
+    padding: 16px 20px;
+    background: var(--bg);
+    position: relative;
+    margin: 12px 0;
+  }
+
+  .arch-box .arch-label {
+    font-family: var(--mono);
+    font-size: 10px;
+    letter-spacing: 1px;
+    text-transform: uppercase;
+    color: var(--text-muted);
+    margin-bottom: 4px;
+  }
+
+  .arch-box .arch-name {
+    font-family: var(--serif);
+    font-size: 18px;
+  }
+
+  .arch-box .arch-detail {
+    font-family: var(--mono);
+    font-size: 11px;
+    color: var(--text-muted);
+    margin-top: 4px;
+  }
+
+  .arch-connector {
+    text-align: center;
+    color: var(--text-muted);
+    font-family: var(--mono);
+    font-size: 11px;
+    padding: 6px 0;
+    letter-spacing: 2px;
+  }
+
+  .arch-row {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 12px;
+  }
+
+  .arch-center {
+    border-color: var(--accent);
+  }
+
+  .arch-center .arch-name {
+    color: var(--accent);
+  }
+
+  /* ===== MODELS OVERVIEW ===== */
+  #models-overview {
+    background: var(--bg-alt);
+  }
+
+  .models-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(300px, 1fr));
+    gap: 1px;
+    background: var(--border);
+    border: 1px solid var(--border);
+    margin-top: 40px;
+  }
+
+  .model-card {
+    background: var(--bg);
+    padding: 28px 24px;
+    cursor: pointer;
+    transition: all 0.3s ease;
+    position: relative;
+  }
+
+  .model-card::before {
+    content: '';
+    position: absolute;
+    top: 0;
+    left: 0;
+    width: 0;
+    height: 2px;
+    background: var(--card-accent, var(--accent));
+    transition: width 0.4s ease;
+  }
+
+  .model-card:hover::before {
+    width: 100%;
+  }
+
+  .model-card:hover {
+    background: var(--bg-alt);
+  }
+
+  .model-card .card-num {
+    font-family: var(--serif);
+    font-size: 36px;
+    color: var(--border);
+    line-height: 1;
+    margin-bottom: 12px;
+    transition: color 0.3s;
+  }
+
+  .model-card:hover .card-num {
+    color: var(--card-accent, var(--accent));
+  }
+
+  .model-card .card-name {
+    font-family: var(--serif);
+    font-size: 18px;
+    margin-bottom: 6px;
+  }
+
+  .model-card .card-algo {
+    font-family: var(--mono);
+    font-size: 10px;
+    letter-spacing: 0.5px;
+    text-transform: uppercase;
+    color: var(--card-accent, var(--accent));
+    margin-bottom: 10px;
+  }
+
+  .model-card .card-question {
+    font-family: var(--serif);
+    font-size: 13px;
+    font-style: italic;
+    color: var(--text-muted);
+  }
+
+  .model-card .card-type {
+    font-family: var(--mono);
+    font-size: 9px;
+    letter-spacing: 1px;
+    text-transform: uppercase;
+    color: var(--text-muted);
+    margin-top: 12px;
+    padding-top: 10px;
+    border-top: 1px solid var(--border);
+  }
+
+  /* ===== INDIVIDUAL MODEL SECTIONS ===== */
+  .model-section {
+    position: relative;
+  }
+
+  .model-section .section-inner {
+    display: grid;
+    grid-template-columns: 280px 1fr;
+    gap: 60px;
+    align-items: start;
+  }
+
+  .model-sidebar {
+    position: relative;
+    padding-top: 12px;
+  }
+
+  .model-big-num {
+    font-family: var(--serif);
+    font-size: 160px;
+    line-height: 0.85;
+    color: transparent;
+    -webkit-text-stroke: 1.5px var(--border);
+    position: absolute;
+    top: -30px;
+    left: -10px;
+    z-index: 0;
+    transition: -webkit-text-stroke-color 0.5s;
+    user-select: none;
+  }
+
+  .model-section:hover .model-big-num {
+    -webkit-text-stroke-color: var(--model-accent, var(--accent));
+  }
+
+  .model-sidebar-content {
+    position: relative;
+    z-index: 1;
+    padding-top: 110px;
+  }
+
+  .model-sidebar-content .model-algo-tag {
+    display: inline-block;
+    font-family: var(--mono);
+    font-size: 10px;
+    letter-spacing: 1px;
+    text-transform: uppercase;
+    padding: 5px 12px;
+    border: 1px solid var(--model-accent, var(--accent));
+    color: var(--model-accent, var(--accent));
+    margin-bottom: 16px;
+  }
+
+  .model-sidebar-content h2 {
+    font-size: 32px;
+    margin-bottom: 12px;
+  }
+
+  .model-sidebar-content .model-goal {
+    font-family: var(--serif);
+    font-size: 14px;
+    font-style: italic;
+    color: var(--text-muted);
+    line-height: 1.6;
+  }
+
+  .model-main {
+    display: flex;
+    flex-direction: column;
+    gap: 28px;
+    padding-top: 16px;
+  }
+
+  .model-block {
+    background: var(--bg-alt);
+    border: 1px solid var(--border);
+    padding: 24px;
+  }
+
+  .model-block h4 {
+    font-family: var(--mono);
+    font-size: 10px;
+    letter-spacing: 1.5px;
+    text-transform: uppercase;
+    color: var(--text-muted);
+    margin-bottom: 14px;
+  }
+
+  .model-block p {
+    font-size: 14px;
+    line-height: 1.7;
+    color: var(--text);
+  }
+
+  .model-block .step {
+    display: flex;
+    gap: 14px;
+    margin-bottom: 10px;
+    align-items: flex-start;
+  }
+
+  .model-block .step-num {
+    font-family: var(--serif);
+    font-size: 20px;
+    color: var(--model-accent, var(--accent));
+    flex-shrink: 0;
+    width: 24px;
+    text-align: center;
+    line-height: 1.3;
+  }
+
+  .model-block .step-text {
+    font-size: 13px;
+    line-height: 1.6;
+    color: var(--text);
+    flex: 1;
+  }
+
+  .model-block .step-text strong {
+    font-family: var(--mono);
+    font-size: 11px;
+    letter-spacing: 0.3px;
+  }
+
+  /* Feature pills */
+  .feature-pills {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 6px;
+    margin-top: 8px;
+  }
+
+  .pill {
+    font-family: var(--mono);
+    font-size: 10px;
+    padding: 3px 10px;
+    background: var(--bg);
+    border: 1px solid var(--border);
+    color: var(--text-muted);
+    letter-spacing: 0.3px;
+  }
+
+  /* Stat row */
+  .stat-row {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(140px, 1fr));
+    gap: 1px;
+    background: var(--border);
+    border: 1px solid var(--border);
+  }
+
+  .stat-item {
+    background: var(--bg);
+    padding: 16px;
+    text-align: center;
+  }
+
+  .stat-item .stat-value {
+    font-family: var(--serif);
+    font-size: 28px;
+    color: var(--model-accent, var(--accent));
+    line-height: 1;
+  }
+
+  .stat-item .stat-label {
+    font-family: var(--mono);
+    font-size: 9px;
+    letter-spacing: 1px;
+    text-transform: uppercase;
+    color: var(--text-muted);
+    margin-top: 6px;
+  }
+
+  /* Mini table */
+  .mini-table {
+    width: 100%;
+    border-collapse: collapse;
+    font-size: 13px;
+  }
+
+  .mini-table th {
+    font-family: var(--mono);
+    font-size: 9px;
+    letter-spacing: 1px;
+    text-transform: uppercase;
+    color: var(--text-muted);
+    text-align: left;
+    padding: 8px 12px;
+    border-bottom: 1px solid var(--border);
+    font-weight: 400;
+  }
+
+  .mini-table td {
+    padding: 8px 12px;
+    border-bottom: 1px solid var(--border);
+    vertical-align: top;
+  }
+
+  .mini-table tr:last-child td {
+    border-bottom: none;
+  }
+
+  .mini-table .highlight {
+    color: var(--model-accent, var(--accent));
+    font-weight: 600;
+  }
+
+  /* Two-column model layout */
+  .model-two-col {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 16px;
+  }
+
+  /* ===== ANOMALY COMBINED ===== */
+  .dual-model .section-inner {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 48px;
+  }
+
+  .dual-model-side {
+    display: flex;
+    flex-direction: column;
+    gap: 24px;
+  }
+
+  .dual-model-side .dual-header {
+    display: flex;
+    align-items: baseline;
+    gap: 14px;
+  }
+
+  .dual-model-side .dual-num {
+    font-family: var(--serif);
+    font-size: 64px;
+    color: transparent;
+    -webkit-text-stroke: 1px var(--border);
+    line-height: 0.85;
+  }
+
+  .dual-divider {
+    width: 1px;
+    background: var(--border);
+    align-self: stretch;
+  }
+
+  /* ===== ABC MATRIX ===== */
+  .abc-matrix {
+    display: grid;
+    grid-template-columns: 40px repeat(3, 1fr);
+    grid-template-rows: 40px repeat(3, 1fr);
+    gap: 1px;
+    background: var(--border);
+    border: 1px solid var(--border);
+  }
+
+  .abc-matrix .matrix-header {
+    background: var(--bg);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-family: var(--serif);
+    font-size: 18px;
+    font-weight: 600;
+    color: var(--text-muted);
+  }
+
+  .abc-matrix .matrix-corner {
+    background: var(--bg);
+  }
+
+  .abc-matrix .matrix-cell {
+    background: var(--bg);
+    padding: 10px;
+    text-align: center;
+    transition: all 0.3s;
+    cursor: default;
+  }
+
+  .abc-matrix .matrix-cell:hover {
+    background: var(--bg-alt);
+  }
+
+  .abc-matrix .matrix-cell .cell-class {
+    font-family: var(--serif);
+    font-size: 18px;
+    font-weight: 600;
+  }
+
+  .abc-matrix .matrix-cell .cell-strategy {
+    font-family: var(--mono);
+    font-size: 9px;
+    color: var(--text-muted);
+    margin-top: 4px;
+    line-height: 1.4;
+  }
+
+  .priority-high .cell-class { color: var(--accent); }
+  .priority-med .cell-class { color: var(--amber); }
+  .priority-low .cell-class { color: var(--text-muted); }
+
+  /* ===== PIPELINE ===== */
+  #pipeline {
+    background: var(--text);
+    color: var(--bg);
+  }
+
+  #pipeline .label-sm { color: rgba(247,245,240,0.4); }
+  #pipeline h2 { color: var(--bg); }
+
+  .pipeline-track {
+    display: flex;
+    flex-direction: column;
+    gap: 0;
+    margin-top: 40px;
+    position: relative;
+  }
+
+  .pipeline-track::before {
+    content: '';
+    position: absolute;
+    left: 63px;
+    top: 0;
+    bottom: 0;
+    width: 1px;
+    background: rgba(247,245,240,0.12);
+  }
+
+  .pipeline-group {
+    display: grid;
+    grid-template-columns: 128px 1fr 100px;
+    gap: 24px;
+    padding: 20px 0;
+    align-items: center;
+    border-bottom: 1px solid rgba(247,245,240,0.06);
+    position: relative;
+  }
+
+  .pipeline-group::before {
+    content: '';
+    position: absolute;
+    left: 59px;
+    top: 50%;
+    width: 9px;
+    height: 9px;
+    border-radius: 50%;
+    background: var(--accent);
+    transform: translateY(-50%);
+  }
+
+  .pg-label {
+    font-family: var(--mono);
+    font-size: 10px;
+    letter-spacing: 1px;
+    text-transform: uppercase;
+    color: rgba(247,245,240,0.35);
+    text-align: right;
+    padding-right: 28px;
+  }
+
+  .pg-handlers {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 8px;
+  }
+
+  .pg-handler {
+    font-family: var(--mono);
+    font-size: 11px;
+    padding: 5px 12px;
+    border: 1px solid rgba(247,245,240,0.15);
+    color: rgba(247,245,240,0.7);
+    transition: all 0.3s;
+  }
+
+  .pg-handler:hover {
+    border-color: var(--accent);
+    color: var(--bg);
+  }
+
+  .pg-mode {
+    font-family: var(--mono);
+    font-size: 10px;
+    letter-spacing: 0.5px;
+    color: rgba(247,245,240,0.3);
+  }
+
+  .pg-time {
+    font-family: var(--serif);
+    font-size: 14px;
+    color: rgba(247,245,240,0.5);
+    text-align: right;
+  }
+
+  .pipeline-total {
+    display: flex;
+    justify-content: flex-end;
+    align-items: baseline;
+    gap: 8px;
+    margin-top: 24px;
+    padding-top: 16px;
+    border-top: 1px solid rgba(247,245,240,0.1);
+  }
+
+  .pipeline-total .total-label {
+    font-family: var(--mono);
+    font-size: 10px;
+    letter-spacing: 1px;
+    text-transform: uppercase;
+    color: rgba(247,245,240,0.35);
+  }
+
+  .pipeline-total .total-value {
+    font-family: var(--serif);
+    font-size: 32px;
+    color: var(--accent);
+  }
+
+  .pipeline-total .total-unit {
+    font-family: var(--mono);
+    font-size: 11px;
+    color: rgba(247,245,240,0.5);
+  }
+
+  /* ===== TECH STACK ===== */
+  .tech-grid {
+    display: grid;
+    grid-template-columns: repeat(4, 1fr);
+    gap: 1px;
+    background: var(--border);
+    border: 1px solid var(--border);
+    margin-top: 40px;
+  }
+
+  .tech-item {
+    background: var(--bg);
+    padding: 28px 24px;
+    transition: background 0.3s;
+  }
+
+  .tech-item:hover {
+    background: var(--bg-alt);
+  }
+
+  .tech-item .tech-name {
+    font-family: var(--serif);
+    font-size: 20px;
+    margin-bottom: 4px;
+  }
+
+  .tech-item .tech-version {
+    font-family: var(--mono);
+    font-size: 10px;
+    color: var(--accent);
+    letter-spacing: 0.5px;
+    margin-bottom: 8px;
+  }
+
+  .tech-item .tech-role {
+    font-size: 12px;
+    color: var(--text-muted);
+    line-height: 1.5;
+  }
+
+  .infra-blocks {
+    display: grid;
+    grid-template-columns: repeat(3, 1fr);
+    gap: 16px;
+    margin-top: 28px;
+  }
+
+  .infra-block {
+    background: var(--bg-alt);
+    border: 1px solid var(--border);
+    padding: 24px;
+  }
+
+  .infra-block h4 {
+    font-family: var(--mono);
+    font-size: 10px;
+    letter-spacing: 1.5px;
+    text-transform: uppercase;
+    color: var(--text-muted);
+    margin-bottom: 14px;
+  }
+
+  .infra-block .infra-detail {
+    font-size: 13px;
+    line-height: 1.7;
+    color: var(--text);
+  }
+
+  .infra-block .infra-detail code {
+    font-family: var(--mono);
+    font-size: 11px;
+    background: var(--bg);
+    padding: 1px 5px;
+    border: 1px solid var(--border);
+  }
+
+  /* ===== SUMMARY ===== */
+  #summary {
+    background: var(--bg-alt);
+  }
+
+  .summary-stats {
+    display: grid;
+    grid-template-columns: repeat(4, 1fr);
+    gap: 1px;
+    background: var(--border);
+    border: 1px solid var(--border);
+    margin-top: 48px;
+  }
+
+  .summary-stat {
+    background: var(--bg);
+    padding: 40px 28px;
+    text-align: center;
+    transition: background 0.3s;
+  }
+
+  .summary-stat:hover {
+    background: var(--bg-alt);
+  }
+
+  .summary-stat .ss-value {
+    font-family: var(--serif);
+    font-size: 52px;
+    line-height: 1;
+    color: var(--text);
+  }
+
+  .summary-stat .ss-unit {
+    font-family: var(--serif);
+    font-size: 20px;
+    color: var(--text-muted);
+  }
+
+  .summary-stat .ss-label {
+    font-family: var(--mono);
+    font-size: 10px;
+    letter-spacing: 1.5px;
+    text-transform: uppercase;
+    color: var(--text-muted);
+    margin-top: 10px;
+  }
+
+  .summary-outputs {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(250px, 1fr));
+    gap: 1px;
+    background: var(--border);
+    border: 1px solid var(--border);
+    margin-top: 16px;
+  }
+
+  .summary-output {
+    background: var(--bg);
+    padding: 16px 20px;
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+  }
+
+  .summary-output .so-model {
+    font-family: var(--serif);
+    font-size: 14px;
+  }
+
+  .summary-output .so-count {
+    font-family: var(--mono);
+    font-size: 12px;
+    color: var(--accent);
+  }
+
+  /* ===== ALERTS TABLE ===== */
+  .alerts-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));
+    gap: 1px;
+    background: var(--border);
+    border: 1px solid var(--border);
+    margin-top: 20px;
+  }
+
+  .alert-item {
+    background: var(--bg);
+    padding: 16px;
+  }
+
+  .alert-model {
+    font-family: var(--serif);
+    font-size: 13px;
+    margin-bottom: 6px;
+  }
+
+  .alert-trigger {
+    font-size: 12px;
+    color: var(--text-muted);
+    margin-bottom: 6px;
+  }
+
+  .severity-badge {
+    display: inline-block;
+    font-family: var(--mono);
+    font-size: 9px;
+    letter-spacing: 1px;
+    padding: 2px 8px;
+  }
+
+  .severity-critical { background: #FEE2E2; color: var(--red); }
+  .severity-high { background: #FFEDD5; color: var(--amber); }
+  .severity-medium { background: #FEF9C3; color: #92400E; }
+
+  /* ===== SUPPLIER SCORING BARS ===== */
+  .score-bars {
+    display: flex;
+    flex-direction: column;
+    gap: 12px;
+    margin-top: 12px;
+  }
+
+  .score-bar {
+    display: grid;
+    grid-template-columns: 100px 1fr 40px;
+    gap: 12px;
+    align-items: center;
+  }
+
+  .score-bar .bar-label {
+    font-family: var(--mono);
+    font-size: 10px;
+    letter-spacing: 0.5px;
+    text-transform: uppercase;
+    color: var(--text-muted);
+    text-align: right;
+  }
+
+  .score-bar .bar-track {
+    height: 6px;
+    background: var(--border);
+    position: relative;
+    overflow: hidden;
+  }
+
+  .score-bar .bar-fill {
+    height: 100%;
+    background: var(--model-accent, var(--accent));
+    transition: width 1s ease;
+    width: 0;
+  }
+
+  .score-bar .bar-value {
+    font-family: var(--mono);
+    font-size: 11px;
+    color: var(--text-muted);
+  }
+
+  .visible .bar-fill { width: var(--fill-width); }
+
+  /* ===== CLUSTER VIZ ===== */
+  .cluster-names {
+    display: grid;
+    grid-template-columns: repeat(3, 1fr);
+    gap: 1px;
+    background: var(--border);
+    border: 1px solid var(--border);
+  }
+
+  .cluster-name-item {
+    background: var(--bg);
+    padding: 14px 16px;
+  }
+
+  .cluster-name-item .cn-name {
+    font-family: var(--serif);
+    font-size: 15px;
+    margin-bottom: 4px;
+  }
+
+  .cluster-name-item .cn-desc {
+    font-family: var(--mono);
+    font-size: 10px;
+    color: var(--text-muted);
+  }
+
+  /* ===== KEYBOARD HINT ===== */
+  .key-hint {
+    position: fixed;
+    bottom: 24px;
+    left: 50%;
+    transform: translateX(-50%);
+    font-family: var(--mono);
+    font-size: 10px;
+    letter-spacing: 1px;
+    color: var(--text-muted);
+    background: var(--bg);
+    border: 1px solid var(--border);
+    padding: 6px 16px;
+    z-index: 9998;
+    opacity: 1;
+    transition: opacity 1s ease;
+  }
+
+  .key-hint.hidden {
+    opacity: 0;
+    pointer-events: none;
+  }
+
+  .key-hint kbd {
+    display: inline-block;
+    font-family: var(--mono);
+    font-size: 10px;
+    padding: 1px 6px;
+    background: var(--bg-alt);
+    border: 1px solid var(--border);
+    border-radius: 2px;
+    margin: 0 2px;
+  }
+
+  /* ===== RESPONSIVE ===== */
+  @media (max-width: 1024px) {
+    section { padding: 40px 40px; }
+    nav { display: none; }
+    #overview .section-inner { grid-template-columns: 1fr; gap: 40px; }
+    .model-section .section-inner { grid-template-columns: 1fr; gap: 24px; }
+    .model-big-num { font-size: 100px; position: relative; top: 0; left: 0; }
+    .model-sidebar-content { padding-top: 0; }
+    .dual-model .section-inner { grid-template-columns: 1fr; }
+    .tech-grid { grid-template-columns: repeat(2, 1fr); }
+    .summary-stats { grid-template-columns: repeat(2, 1fr); }
+    .infra-blocks { grid-template-columns: 1fr; }
+    .pipeline-group { grid-template-columns: 80px 1fr 80px; }
+    .abc-matrix { grid-template-columns: 32px repeat(3, 1fr); }
+    .model-two-col { grid-template-columns: 1fr; }
+  }
+
+  @media (max-width: 640px) {
+    section { padding: 32px 20px; min-height: auto; scroll-snap-align: none; }
+    html { scroll-snap-type: none; }
+    h1 { letter-spacing: -1px; }
+    .models-grid { grid-template-columns: 1fr; }
+    .tech-grid { grid-template-columns: 1fr; }
+    .summary-stats { grid-template-columns: 1fr; }
+    .cluster-names { grid-template-columns: 1fr; }
+    .pipeline-group { grid-template-columns: 1fr; gap: 8px; }
+    .pipeline-track::before { display: none; }
+    .pipeline-group::before { display: none; }
+  }
+</style>
+</head>
+<body>
+
+<div id="progress"></div>
+
+<nav id="nav">
+  <a href="#cover" class="active"><span class="label">Cover</span><span class="dot"></span></a>
+  <a href="#overview"><span class="label">Overview</span><span class="dot"></span></a>
+  <a href="#models-overview"><span class="label">Models</span><span class="dot"></span></a>
+  <a href="#model-1"><span class="label">01 Demand</span><span class="dot"></span></a>
+  <a href="#model-2"><span class="label">02 Price</span><span class="dot"></span></a>
+  <a href="#model-34"><span class="label">03-04 Anomaly</span><span class="dot"></span></a>
+  <a href="#model-5"><span class="label">05 ABC-XYZ</span><span class="dot"></span></a>
+  <a href="#model-6"><span class="label">06 Clusters</span><span class="dot"></span></a>
+  <a href="#model-7"><span class="label">07 Supplier</span><span class="dot"></span></a>
+  <a href="#pipeline"><span class="label">Pipeline</span><span class="dot"></span></a>
+  <a href="#tech"><span class="label">Tech Stack</span><span class="dot"></span></a>
+  <a href="#summary"><span class="label">Summary</span><span class="dot"></span></a>
+</nav>
+
+<div class="key-hint" id="keyHint">
+  Navigate with <kbd>&uarr;</kbd> <kbd>&darr;</kbd> arrow keys or scroll
+</div>
+
+<!-- ==================== COVER ==================== -->
+<section id="cover">
+  <div class="section-inner">
+    <div class="reveal">
+      <h1>AI<span>Service</span></h1>
+    </div>
+    <div class="thin-rule reveal reveal-delay-2" style="background: rgba(247,245,240,0.2); width: 64px;"></div>
+    <p class="subtitle reveal reveal-delay-3">
+      Seven machine learning models. One intelligent backend.<br>
+      Turning historical data into actionable decisions.
+    </p>
+    <div class="cover-meta reveal reveal-delay-4">
+      <span class="meta-item">Python 3.13</span>
+      <span class="meta-item">scikit-learn</span>
+      <span class="meta-item">Prophet</span>
+      <span class="meta-item">PostgreSQL 16</span>
+    </div>
+  </div>
+  <div class="scroll-hint">Scroll to explore</div>
+</section>
+
+<!-- ==================== OVERVIEW ==================== -->
+<section id="overview">
+  <div class="section-inner">
+    <div class="overview-left">
+      <span class="label-sm reveal">What is the AI Service?</span>
+      <h2 class="reveal reveal-delay-1" style="margin-top: 12px;">A standalone microservice that analyzes your data and writes predictions.</h2>
+      <p class="reveal reveal-delay-2">It runs alongside the Rust API, sharing the same PostgreSQL database. The AI service <em>writes</em> predictions. The API <em>reads</em> them. They never communicate directly &mdash; the database is the integration layer.</p>
+      <ul class="question-list reveal reveal-delay-3">
+        <li>&ldquo;When will this product run out of stock?&rdquo;<em>Demand Forecaster</em></li>
+        <li>&ldquo;Is this product priced correctly?&rdquo;<em>Price Suggester</em></li>
+        <li>&ldquo;Is this price or sales pattern abnormal?&rdquo;<em>Anomaly Detectors</em></li>
+        <li>&ldquo;Which products matter most?&rdquo;<em>ABC-XYZ Classifier</em></li>
+        <li>&ldquo;What hidden segments exist?&rdquo;<em>Product Clusterer</em></li>
+        <li>&ldquo;Which suppliers are reliable?&rdquo;<em>Supplier Scorer</em></li>
+      </ul>
+    </div>
+    <div class="arch-diagram reveal reveal-delay-2">
+      <div class="arch-box arch-center">
+        <div class="arch-label">Shared Database</div>
+        <div class="arch-name">PostgreSQL 16</div>
+        <div class="arch-detail">6 input tables &rarr; 8 output tables</div>
+      </div>
+      <div class="arch-connector">&darr;&ensp;reads &amp; writes&ensp;&darr;</div>
+      <div class="arch-row">
+        <div class="arch-box">
+          <div class="arch-label">REST API</div>
+          <div class="arch-name">Rust / Axum</div>
+          <div class="arch-detail">Port 8090 &middot; reads AI results</div>
+        </div>
+        <div class="arch-box">
+          <div class="arch-label">Intelligence Layer</div>
+          <div class="arch-name">AI Service</div>
+          <div class="arch-detail">Port 8001 &middot; writes predictions</div>
+        </div>
+      </div>
+      <div class="arch-connector" style="text-align: left; padding-left: 60px;">&darr;</div>
+      <div class="arch-box" style="width: calc(50% - 6px);">
+        <div class="arch-label">Consumer</div>
+        <div class="arch-name">Frontend</div>
+        <div class="arch-detail">Always through Rust API</div>
+      </div>
+    </div>
+  </div>
+</section>
+
+<!-- ==================== MODELS OVERVIEW ==================== -->
+<section id="models-overview">
+  <div class="section-inner">
+    <span class="label-sm reveal">The Intelligence Layer</span>
+    <h2 class="reveal reveal-delay-1" style="margin-top: 12px;">Seven models, three categories</h2>
+    <div class="models-grid reveal reveal-delay-2">
+      <a class="model-card" href="#model-1" style="--card-accent: var(--accent);">
+        <div class="card-num">01</div>
+        <div class="card-name">Demand Forecaster</div>
+        <div class="card-algo">Facebook Prophet</div>
+        <div class="card-question">&ldquo;When will this product run out?&rdquo;</div>
+        <div class="card-type">Supervised &middot; Time-Series</div>
+      </a>
+      <a class="model-card" href="#model-2" style="--card-accent: var(--green);">
+        <div class="card-num">02</div>
+        <div class="card-name">Price Suggester</div>
+        <div class="card-algo">Random Forest / Gradient Boosting</div>
+        <div class="card-question">&ldquo;What should this product cost?&rdquo;</div>
+        <div class="card-type">Supervised &middot; Regression</div>
+      </a>
+      <a class="model-card" href="#model-34" style="--card-accent: var(--amber);">
+        <div class="card-num">03</div>
+        <div class="card-name">Price Anomaly Detector</div>
+        <div class="card-algo">Isolation Forest</div>
+        <div class="card-question">&ldquo;Is this price abnormal?&rdquo;</div>
+        <div class="card-type">Unsupervised &middot; Anomaly</div>
+      </a>
+      <a class="model-card" href="#model-34" style="--card-accent: var(--rose);">
+        <div class="card-num">04</div>
+        <div class="card-name">Sales Anomaly Detector</div>
+        <div class="card-algo">Isolation Forest</div>
+        <div class="card-question">&ldquo;Is this sales volume abnormal?&rdquo;</div>
+        <div class="card-type">Unsupervised &middot; Anomaly</div>
+      </a>
+      <a class="model-card" href="#model-5" style="--card-accent: var(--violet);">
+        <div class="card-num">05</div>
+        <div class="card-name">ABC-XYZ Classifier</div>
+        <div class="card-algo">Pareto + Coefficient of Variation</div>
+        <div class="card-question">&ldquo;How important is this product?&rdquo;</div>
+        <div class="card-type">Statistical &middot; Rule-Based</div>
+      </a>
+      <a class="model-card" href="#model-6" style="--card-accent: var(--cyan);">
+        <div class="card-num">06</div>
+        <div class="card-name">Product Clusterer</div>
+        <div class="card-algo">K-Means Clustering</div>
+        <div class="card-question">&ldquo;What hidden segments exist?&rdquo;</div>
+        <div class="card-type">Unsupervised &middot; Clustering</div>
+      </a>
+      <a class="model-card" href="#model-7" style="--card-accent: var(--red);">
+        <div class="card-num">07</div>
+        <div class="card-name">Supplier Scorer</div>
+        <div class="card-algo">Weighted Multi-Criteria</div>
+        <div class="card-question">&ldquo;How reliable is this supplier?&rdquo;</div>
+        <div class="card-type">Statistical &middot; Scoring</div>
+      </a>
+    </div>
+  </div>
+</section>
+
+<!-- ==================== MODEL 01: DEMAND FORECASTER ==================== -->
+<section id="model-1" class="model-section" style="--model-accent: var(--accent);">
+  <div class="section-inner">
+    <div class="model-sidebar">
+      <div class="model-big-num reveal">01</div>
+      <div class="model-sidebar-content">
+        <div class="model-algo-tag reveal reveal-delay-1">Facebook Prophet</div>
+        <h2 class="reveal reveal-delay-2">Demand Forecaster</h2>
+        <p class="model-goal reveal reveal-delay-3">Predict future product demand to prevent stockouts and optimize reorder timing.</p>
+      </div>
+    </div>
+    <div class="model-main">
+      <div class="model-block reveal">
+        <h4>How It&rsquo;s Trained</h4>
+        <div class="step"><span class="step-num">1</span><span class="step-text">Pull up to <strong>2 years</strong> of daily sales per product. Fill missing dates with zero.</span></div>
+        <div class="step"><span class="step-num">2</span><span class="step-text">Fit a Prophet model with <strong>additive seasonality</strong> &mdash; automatically detects weekly and yearly patterns plus trend changepoints.</span></div>
+        <div class="step"><span class="step-num">3</span><span class="step-text">Forecast the next <strong>30 days</strong> with 80% confidence intervals (upper/lower bounds per day).</span></div>
+        <div class="step"><span class="step-num">4</span><span class="step-text">Calculate recommended stock = <strong>sum(upper bounds) &times; 1.2</strong> safety buffer. Derive reorder quantity and days until stockout.</span></div>
+      </div>
+      <div class="stat-row reveal reveal-delay-1">
+        <div class="stat-item"><div class="stat-value">30</div><div class="stat-label">Day Horizon</div></div>
+        <div class="stat-item"><div class="stat-value">2yr</div><div class="stat-label">Training Depth</div></div>
+        <div class="stat-item"><div class="stat-value">80%</div><div class="stat-label">Confidence Interval</div></div>
+        <div class="stat-item"><div class="stat-value">30</div><div class="stat-label">Min Data Points</div></div>
+      </div>
+      <div class="model-block reveal reveal-delay-2">
+        <h4>Urgency Classification</h4>
+        <table class="mini-table">
+          <thead><tr><th>Urgency</th><th>Stockout In</th><th>Action</th></tr></thead>
+          <tbody>
+            <tr><td class="highlight">URGENT</td><td>&le; 7 days</td><td>Reorder immediately</td></tr>
+            <tr><td class="highlight">HIGH</td><td>&le; 14 days</td><td>Place order soon</td></tr>
+            <tr><td>MEDIUM</td><td>&le; 30 days</td><td>Schedule reorder</td></tr>
+            <tr><td>LOW</td><td>&gt; 30 days</td><td>No action needed</td></tr>
+          </tbody>
+        </table>
+      </div>
+      <div class="model-block reveal reveal-delay-3">
+        <h4>Accuracy Metrics</h4>
+        <p><strong>MAPE</strong> (Mean Absolute % Error) &mdash; average prediction error. Under 20% is good.<br>
+        <strong>RMSE</strong> (Root Mean Squared Error) &mdash; absolute error in units. Lower is better.</p>
+      </div>
+    </div>
+  </div>
+</section>
+
+<!-- ==================== MODEL 02: PRICE SUGGESTER ==================== -->
+<section id="model-2" class="model-section" style="--model-accent: var(--green);">
+  <div class="section-inner">
+    <div class="model-sidebar">
+      <div class="model-big-num reveal">02</div>
+      <div class="model-sidebar-content">
+        <div class="model-algo-tag reveal reveal-delay-1">Random Forest / Gradient Boosting</div>
+        <h2 class="reveal reveal-delay-2">Price Suggester</h2>
+        <p class="model-goal reveal reveal-delay-3">Recommend optimal selling prices based on historical trends and market positioning.</p>
+      </div>
+    </div>
+    <div class="model-main">
+      <div class="model-block reveal">
+        <h4>How It&rsquo;s Trained</h4>
+        <div class="step"><span class="step-num">1</span><span class="step-text">Build sliding-window training samples from price history. Uses <strong>prices[0:i]</strong> to predict <strong>prices[i]</strong>.</span></div>
+        <div class="step"><span class="step-num">2</span><span class="step-text">Engineer <strong>8 features</strong> per sample: current price, mean, std, min, max, trend, volatility, position in range.</span></div>
+        <div class="step"><span class="step-num">3</span><span class="step-text">Train both Random Forest (depth=10) and Gradient Boosting (depth=5). <strong>5-fold cross-validation</strong> picks the winner by R&sup2; score.</span></div>
+        <div class="step"><span class="step-num">4</span><span class="step-text">Predict optimal price per product. <strong>Safety cap: 50&ndash;150%</strong> of current price.</span></div>
+      </div>
+      <div class="model-block reveal reveal-delay-1">
+        <h4>8 Engineered Features</h4>
+        <div class="feature-pills">
+          <span class="pill">current_price</span>
+          <span class="pill">mean_price</span>
+          <span class="pill">std_price</span>
+          <span class="pill">min_price</span>
+          <span class="pill">max_price</span>
+          <span class="pill">price_trend</span>
+          <span class="pill">volatility</span>
+          <span class="pill">price_position</span>
+        </div>
+      </div>
+      <div class="model-block reveal reveal-delay-2">
+        <h4>Confidence Scoring</h4>
+        <p style="font-family: var(--mono); font-size: 13px; margin-bottom: 10px; color: var(--green);">
+          confidence = 0.4 &times; data_confidence + 0.6 &times; model_R&sup2;
+        </p>
+        <p>Only suggestions with <strong>confidence &ge; 0.7</strong> generate alerts. Price changes are described in human-readable reasons: &ldquo;Consider increasing price by 5.2% based on market trends.&rdquo;</p>
+      </div>
+    </div>
+  </div>
+</section>
+
+<!-- ==================== MODELS 03-04: ANOMALY DETECTORS ==================== -->
+<section id="model-34" class="dual-model">
+  <div class="section-inner">
+    <!-- Price Anomaly -->
+    <div class="dual-model-side" style="--model-accent: var(--amber);">
+      <div class="dual-header reveal">
+        <span class="dual-num">03</span>
+        <div>
+          <div class="model-algo-tag" style="border-color: var(--amber); color: var(--amber); font-family: var(--mono); font-size: 10px; letter-spacing: 1px; text-transform: uppercase; padding: 4px 10px; border: 1px solid; display: inline-block; margin-bottom: 6px;">Isolation Forest</div>
+          <h3 style="font-size: 26px;">Price Anomaly</h3>
+        </div>
+      </div>
+      <p class="reveal reveal-delay-1" style="font-family: var(--serif); font-size: 14px; font-style: italic; color: var(--text-muted);">Flags products whose current price deviates from their expected price &mdash; catching pricing errors, data entry mistakes, or unusual market shifts.</p>
+      <div class="model-block reveal reveal-delay-2">
+        <h4>Feature Engineering</h4>
+        <div class="feature-pills">
+          <span class="pill">price</span>
+          <span class="pill">buying_price</span>
+          <span class="pill">z_score</span>
+          <span class="pill">margin_ratio</span>
+        </div>
+        <p style="margin-top: 12px;">Per-product <strong>rolling average</strong> (30 entries) as baseline. Each product gets its own expected price, not a global average.</p>
+      </div>
+      <div class="model-block reveal reveal-delay-3">
+        <h4>How Isolation Forest Works</h4>
+        <p>Randomly partitions data using decision trees. <strong>Anomalies are easier to isolate</strong> (fewer splits needed), so they naturally get higher scores. The model expects ~10% of records to be anomalous (contamination = 0.1).</p>
+      </div>
+    </div>
+
+    <!-- Sales Anomaly -->
+    <div class="dual-model-side" style="--model-accent: var(--rose);">
+      <div class="dual-header reveal">
+        <span class="dual-num">04</span>
+        <div>
+          <div class="model-algo-tag" style="border-color: var(--rose); color: var(--rose); font-family: var(--mono); font-size: 10px; letter-spacing: 1px; text-transform: uppercase; padding: 4px 10px; border: 1px solid; display: inline-block; margin-bottom: 6px;">Isolation Forest</div>
+          <h3 style="font-size: 26px;">Sales Anomaly</h3>
+        </div>
+      </div>
+      <p class="reveal reveal-delay-1" style="font-family: var(--serif); font-size: 14px; font-style: italic; color: var(--text-muted);">Flags products with unusual sales volumes &mdash; unexpected spikes (bulk buy, viral trend, fraud) or drops (distribution issue, competitor action).</p>
+      <div class="model-block reveal reveal-delay-2">
+        <h4>Feature Engineering</h4>
+        <div class="feature-pills">
+          <span class="pill">volume</span>
+          <span class="pill">order_count</span>
+          <span class="pill">z_score</span>
+          <span class="pill">avg_order_size</span>
+          <span class="pill">orders_z_score</span>
+        </div>
+      </div>
+      <div class="model-block reveal reveal-delay-3">
+        <h4>Severity Thresholds</h4>
+        <table class="mini-table">
+          <thead><tr><th>Score</th><th>Severity</th><th>Meaning</th></tr></thead>
+          <tbody>
+            <tr><td>&le; &minus;0.8</td><td><span class="severity-badge severity-critical">CRITICAL</span></td><td>Extreme deviation</td></tr>
+            <tr><td>&le; &minus;0.5</td><td><span class="severity-badge severity-medium">MEDIUM</span></td><td>Notable deviation</td></tr>
+            <tr><td>&gt; &minus;0.5</td><td style="color: var(--text-muted);">Normal</td><td>Within expected range</td></tr>
+          </tbody>
+        </table>
+      </div>
+      <div class="stat-row reveal reveal-delay-4">
+        <div class="stat-item"><div class="stat-value" style="color: var(--rose);">10%</div><div class="stat-label">Contamination</div></div>
+        <div class="stat-item"><div class="stat-value" style="color: var(--rose);">7d</div><div class="stat-label">Cache TTL</div></div>
+      </div>
+    </div>
+  </div>
+</section>
+
+<!-- ==================== MODEL 05: ABC-XYZ ==================== -->
+<section id="model-5" class="model-section" style="--model-accent: var(--violet);">
+  <div class="section-inner">
+    <div class="model-sidebar">
+      <div class="model-big-num reveal">05</div>
+      <div class="model-sidebar-content">
+        <div class="model-algo-tag reveal reveal-delay-1">Pareto + Coefficient of Variation</div>
+        <h2 class="reveal reveal-delay-2">ABC-XYZ Classifier</h2>
+        <p class="model-goal reveal reveal-delay-3">Classify every product into a 2-letter code that drives inventory strategy. Deterministic and fully interpretable.</p>
+        <div style="margin-top: 20px;" class="reveal reveal-delay-4">
+          <span class="label-sm">Not machine learning</span>
+          <p style="font-size: 13px; color: var(--text-muted); margin-top: 6px; line-height: 1.6;">Uses established supply chain formulas. ABC ranks by revenue contribution (Pareto). XYZ measures demand predictability (CV).</p>
+        </div>
+      </div>
+    </div>
+    <div class="model-main">
+      <div class="model-two-col reveal">
+        <div class="model-block">
+          <h4>ABC &mdash; Revenue Importance</h4>
+          <table class="mini-table">
+            <thead><tr><th>Class</th><th>Revenue</th><th>Meaning</th></tr></thead>
+            <tbody>
+              <tr><td class="highlight">A</td><td>Top ~80%</td><td>Most important</td></tr>
+              <tr><td class="highlight">B</td><td>Next ~15%</td><td>Moderate</td></tr>
+              <tr><td>C</td><td>Remaining ~5%</td><td>Low-value</td></tr>
+            </tbody>
+          </table>
+        </div>
+        <div class="model-block">
+          <h4>XYZ &mdash; Demand Predictability</h4>
+          <table class="mini-table">
+            <thead><tr><th>Class</th><th>CV Range</th><th>Meaning</th></tr></thead>
+            <tbody>
+              <tr><td class="highlight">X</td><td>&lt; 0.5</td><td>Steady, predictable</td></tr>
+              <tr><td class="highlight">Y</td><td>0.5 &ndash; 1.0</td><td>Moderate fluctuation</td></tr>
+              <tr><td>Z</td><td>&ge; 1.0</td><td>Erratic, unpredictable</td></tr>
+            </tbody>
+          </table>
+        </div>
+      </div>
+      <div class="model-block reveal reveal-delay-1">
+        <h4>The 9 Combined Classes</h4>
+        <div class="abc-matrix">
+          <div class="matrix-corner"></div>
+          <div class="matrix-header">X</div>
+          <div class="matrix-header">Y</div>
+          <div class="matrix-header">Z</div>
+          <div class="matrix-header">A</div>
+          <div class="matrix-cell priority-high"><div class="cell-class">AX</div><div class="cell-strategy">JIT + safety stock</div></div>
+          <div class="matrix-cell priority-high"><div class="cell-class">AY</div><div class="cell-strategy">Regular review</div></div>
+          <div class="matrix-cell priority-high"><div class="cell-class">AZ</div><div class="cell-strategy">Large safety stock</div></div>
+          <div class="matrix-header">B</div>
+          <div class="matrix-cell priority-med"><div class="cell-class">BX</div><div class="cell-strategy">Periodic ordering</div></div>
+          <div class="matrix-cell priority-med"><div class="cell-class">BY</div><div class="cell-strategy">Review cycles</div></div>
+          <div class="matrix-cell priority-med"><div class="cell-class">BZ</div><div class="cell-strategy">Increase safety</div></div>
+          <div class="matrix-header">C</div>
+          <div class="matrix-cell priority-low"><div class="cell-class">CX</div><div class="cell-strategy">Automated ordering</div></div>
+          <div class="matrix-cell priority-low"><div class="cell-class">CY</div><div class="cell-strategy">Min-max system</div></div>
+          <div class="matrix-cell priority-low"><div class="cell-class">CZ</div><div class="cell-strategy">Order on demand</div></div>
+        </div>
+      </div>
+      <div class="stat-row reveal reveal-delay-2">
+        <div class="stat-item"><div class="stat-value" style="color: var(--violet);">90d</div><div class="stat-label">Lookback</div></div>
+        <div class="stat-item"><div class="stat-value" style="color: var(--violet);">5</div><div class="stat-label">Min Transactions</div></div>
+        <div class="stat-item"><div class="stat-value" style="color: var(--violet);">9</div><div class="stat-label">Combined Classes</div></div>
+      </div>
+    </div>
+  </div>
+</section>
+
+<!-- ==================== MODEL 06: PRODUCT CLUSTERER ==================== -->
+<section id="model-6" class="model-section" style="--model-accent: var(--cyan);">
+  <div class="section-inner">
+    <div class="model-sidebar">
+      <div class="model-big-num reveal">06</div>
+      <div class="model-sidebar-content">
+        <div class="model-algo-tag reveal reveal-delay-1">K-Means Clustering</div>
+        <h2 class="reveal reveal-delay-2">Product Clusterer</h2>
+        <p class="model-goal reveal reveal-delay-3">Discover hidden product segments by grouping similar products based on sales behavior, margins, and trends.</p>
+      </div>
+    </div>
+    <div class="model-main">
+      <div class="model-block reveal">
+        <h4>How It&rsquo;s Trained</h4>
+        <div class="step"><span class="step-num">1</span><span class="step-text">Engineer <strong>6 normalized features</strong> per product (all scaled 0&ndash;1): revenue, variability, trend, seasonality, frequency, margin.</span></div>
+        <div class="step"><span class="step-num">2</span><span class="step-text">Test <strong>K = 2 to 10</strong> clusters. For each K, compute the <strong>silhouette score</strong> (how well-separated clusters are). Pick the best K.</span></div>
+        <div class="step"><span class="step-num">3</span><span class="step-text">Run final K-Means. Each product assigned to its nearest centroid.</span></div>
+        <div class="step"><span class="step-num">4</span><span class="step-text">Auto-name each cluster based on its centroid characteristics.</span></div>
+      </div>
+      <div class="model-block reveal reveal-delay-1">
+        <h4>6 Features</h4>
+        <div class="feature-pills">
+          <span class="pill">revenue_score</span>
+          <span class="pill">variability_score</span>
+          <span class="pill">trend_score</span>
+          <span class="pill">seasonality_score</span>
+          <span class="pill">frequency_score</span>
+          <span class="pill">margin_score</span>
+        </div>
+      </div>
+      <div class="model-block reveal reveal-delay-2">
+        <h4>Auto-Generated Cluster Names</h4>
+        <div class="cluster-names">
+          <div class="cluster-name-item"><div class="cn-name">Cash Cows</div><div class="cn-desc">High revenue, low variability</div></div>
+          <div class="cluster-name-item"><div class="cn-name">Rising Stars</div><div class="cn-desc">High trend, growing demand</div></div>
+          <div class="cluster-name-item"><div class="cn-name">High-Value Volatile</div><div class="cn-desc">High revenue, high variability</div></div>
+          <div class="cluster-name-item"><div class="cn-name">Steady Performers</div><div class="cn-desc">Balanced, medium scores</div></div>
+          <div class="cluster-name-item"><div class="cn-name">Unpredictable Low-Value</div><div class="cn-desc">Low revenue, high variability</div></div>
+          <div class="cluster-name-item"><div class="cn-name">Reliable Long Tail</div><div class="cn-desc">Low revenue, stable demand</div></div>
+        </div>
+      </div>
+    </div>
+  </div>
+</section>
+
+<!-- ==================== MODEL 07: SUPPLIER SCORER ==================== -->
+<section id="model-7" class="model-section" style="--model-accent: var(--red);">
+  <div class="section-inner">
+    <div class="model-sidebar">
+      <div class="model-big-num reveal">07</div>
+      <div class="model-sidebar-content">
+        <div class="model-algo-tag reveal reveal-delay-1">Weighted Multi-Criteria</div>
+        <h2 class="reveal reveal-delay-2">Supplier Scorer</h2>
+        <p class="model-goal reveal reveal-delay-3">Rate each supplier 0&ndash;100 based on delivery, quality, lead times, and fulfillment. Deterministic scoring, not ML.</p>
+      </div>
+    </div>
+    <div class="model-main">
+      <div class="model-block reveal">
+        <h4>Scoring Formula</h4>
+        <p style="font-family: var(--mono); font-size: 12px; color: var(--red); margin-bottom: 16px;">
+          score = delivery&times;0.40 + quality&times;0.25 + lead_time&times;0.20 + fulfillment&times;0.15
+        </p>
+        <div class="score-bars">
+          <div class="score-bar"><span class="bar-label">Delivery</span><div class="bar-track"><div class="bar-fill" style="--fill-width: 40%; background: var(--red);"></div></div><span class="bar-value">40%</span></div>
+          <div class="score-bar"><span class="bar-label">Quality</span><div class="bar-track"><div class="bar-fill" style="--fill-width: 25%; background: var(--red);"></div></div><span class="bar-value">25%</span></div>
+          <div class="score-bar"><span class="bar-label">Lead Time</span><div class="bar-track"><div class="bar-fill" style="--fill-width: 20%; background: var(--red);"></div></div><span class="bar-value">20%</span></div>
+          <div class="score-bar"><span class="bar-label">Fulfillment</span><div class="bar-track"><div class="bar-fill" style="--fill-width: 15%; background: var(--red);"></div></div><span class="bar-value">15%</span></div>
+        </div>
+      </div>
+      <div class="model-block reveal reveal-delay-1">
+        <h4>Rating Scale</h4>
+        <table class="mini-table">
+          <thead><tr><th>Rating</th><th>Score</th><th>Interpretation</th></tr></thead>
+          <tbody>
+            <tr><td class="highlight">EXCELLENT</td><td>&ge; 90</td><td>Preferred supplier, prioritize orders</td></tr>
+            <tr><td class="highlight">GOOD</td><td>75 &ndash; 89</td><td>Reliable, maintain relationship</td></tr>
+            <tr><td>ACCEPTABLE</td><td>60 &ndash; 74</td><td>Monitor closely, address issues</td></tr>
+            <tr><td>POOR</td><td>40 &ndash; 59</td><td>Needs improvement plan</td></tr>
+            <tr><td style="color: var(--red);">UNACCEPTABLE</td><td>&lt; 40</td><td>Consider replacing</td></tr>
+          </tbody>
+        </table>
+      </div>
+      <div class="stat-row reveal reveal-delay-2">
+        <div class="stat-item"><div class="stat-value" style="color: var(--red);">90d</div><div class="stat-label">Lookback Period</div></div>
+        <div class="stat-item"><div class="stat-value" style="color: var(--red);">3</div><div class="stat-label">Min Restocks</div></div>
+        <div class="stat-item"><div class="stat-value" style="color: var(--red);">5</div><div class="stat-label">Rating Tiers</div></div>
+      </div>
+    </div>
+  </div>
+</section>
+
+<!-- ==================== PIPELINE ==================== -->
+<section id="pipeline">
+  <div class="section-inner">
+    <span class="label-sm reveal">Execution Schedule</span>
+    <h2 class="reveal reveal-delay-1" style="margin-top: 12px;">The Pipeline</h2>
+    <p class="reveal reveal-delay-2" style="font-size: 15px; color: rgba(247,245,240,0.5); max-width: 520px; margin-top: 8px;">
+      Models run in 4 sequential groups. Within a group, handlers execute in parallel. Triggered daily at 2:00 AM, on startup, or manually.
+    </p>
+
+    <div class="pipeline-track">
+      <div class="pipeline-group reveal reveal-delay-2">
+        <div class="pg-label">Group 1<br><span class="pg-mode">parallel</span></div>
+        <div class="pg-handlers">
+          <span class="pg-handler">PriceAnomalyHandler</span>
+          <span class="pg-handler">SalesAnomalyHandler</span>
+        </div>
+        <div class="pg-time">~5s</div>
+      </div>
+      <div class="pipeline-group reveal reveal-delay-3">
+        <div class="pg-label">Group 2<br><span class="pg-mode">parallel</span></div>
+        <div class="pg-handlers">
+          <span class="pg-handler">ClassificationHandler</span>
+          <span class="pg-handler">ClusteringHandler</span>
+          <span class="pg-handler">SupplierScoringHandler</span>
+        </div>
+        <div class="pg-time">~10s</div>
+      </div>
+      <div class="pipeline-group reveal reveal-delay-4">
+        <div class="pg-label">Group 3<br><span class="pg-mode">sequential</span></div>
+        <div class="pg-handlers">
+          <span class="pg-handler">DemandForecastHandler</span>
+        </div>
+        <div class="pg-time">~90s</div>
+      </div>
+      <div class="pipeline-group reveal reveal-delay-5">
+        <div class="pg-label">Group 4<br><span class="pg-mode">sequential</span></div>
+        <div class="pg-handlers">
+          <span class="pg-handler">PriceSuggestionHandler</span>
+        </div>
+        <div class="pg-time">~15s</div>
+      </div>
+    </div>
+
+    <div class="pipeline-total reveal reveal-delay-6">
+      <span class="total-label">Total Runtime</span>
+      <span class="total-value">~2</span>
+      <span class="total-unit">minutes</span>
+    </div>
+  </div>
+</section>
+
+<!-- ==================== TECH STACK ==================== -->
+<section id="tech">
+  <div class="section-inner">
+    <span class="label-sm reveal">Under the Hood</span>
+    <h2 class="reveal reveal-delay-1" style="margin-top: 12px;">Technology Stack</h2>
+
+    <div class="tech-grid reveal reveal-delay-2">
+      <div class="tech-item">
+        <div class="tech-name">Python</div>
+        <div class="tech-version">3.13-slim</div>
+        <div class="tech-role">Runtime &amp; Docker base image</div>
+      </div>
+      <div class="tech-item">
+        <div class="tech-name">Prophet</div>
+        <div class="tech-version">Meta</div>
+        <div class="tech-role">Time-series forecasting with automatic seasonality</div>
+      </div>
+      <div class="tech-item">
+        <div class="tech-name">scikit-learn</div>
+        <div class="tech-version">latest</div>
+        <div class="tech-role">Random Forest, Gradient Boosting, Isolation Forest, K-Means</div>
+      </div>
+      <div class="tech-item">
+        <div class="tech-name">Flask</div>
+        <div class="tech-version">latest</div>
+        <div class="tech-role">Lightweight HTTP server for health &amp; triggers</div>
+      </div>
+      <div class="tech-item">
+        <div class="tech-name">APScheduler</div>
+        <div class="tech-version">Background</div>
+        <div class="tech-role">Cron-based job scheduling alongside Flask</div>
+      </div>
+      <div class="tech-item">
+        <div class="tech-name">pandas</div>
+        <div class="tech-version">latest</div>
+        <div class="tech-role">Data loading, transformation, aggregation</div>
+      </div>
+      <div class="tech-item">
+        <div class="tech-name">psycopg2</div>
+        <div class="tech-version">binary</div>
+        <div class="tech-role">Thread-safe PostgreSQL connection pooling</div>
+      </div>
+      <div class="tech-item">
+        <div class="tech-name">PostgreSQL</div>
+        <div class="tech-version">16</div>
+        <div class="tech-role">Shared database &mdash; the integration layer</div>
+      </div>
+    </div>
+
+    <div class="infra-blocks reveal reveal-delay-3">
+      <div class="infra-block">
+        <h4>Database Pool</h4>
+        <div class="infra-detail">
+          <code>ThreadedConnectionPool</code><br>
+          1&ndash;10 connections<br>
+          3 retries, 1s delay<br>
+          Health check: <code>SELECT version()</code>
+        </div>
+      </div>
+      <div class="infra-block">
+        <h4>Model Caching</h4>
+        <div class="infra-detail">
+          Pickle serialization to disk<br>
+          7-day TTL per model<br>
+          Age-based invalidation<br>
+          Stored in <code>/app/saved_models/</code>
+        </div>
+      </div>
+      <div class="infra-block">
+        <h4>API Endpoints</h4>
+        <div class="infra-detail">
+          <code>GET /ai/health</code> &mdash; DB check<br>
+          <code>GET /ai/status</code> &mdash; Run metrics<br>
+          <code>POST /ai/run</code> &mdash; Manual trigger
+        </div>
+      </div>
+    </div>
+  </div>
+</section>
+
+<!-- ==================== SUMMARY ==================== -->
+<section id="summary">
+  <div class="section-inner">
+    <span class="label-sm reveal">By the Numbers</span>
+    <h2 class="reveal reveal-delay-1" style="margin-top: 12px;">What a single run produces</h2>
+
+    <div class="summary-stats reveal reveal-delay-2">
+      <div class="summary-stat">
+        <div class="ss-value">7</div>
+        <div class="ss-label">ML Models</div>
+      </div>
+      <div class="summary-stat">
+        <div class="ss-value">~2 <span class="ss-unit">min</span></div>
+        <div class="ss-label">Total Runtime</div>
+      </div>
+      <div class="summary-stat">
+        <div class="ss-value">8</div>
+        <div class="ss-label">Output Tables</div>
+      </div>
+      <div class="summary-stat">
+        <div class="ss-value">~115</div>
+        <div class="ss-label">Alerts Generated</div>
+      </div>
+    </div>
+
+    <div class="summary-outputs reveal reveal-delay-3">
+      <div class="summary-output">
+        <span class="so-model">Price Anomalies</span>
+        <span class="so-count">~73 detected</span>
+      </div>
+      <div class="summary-output">
+        <span class="so-model">Sales Anomalies</span>
+        <span class="so-count">~20 detected</span>
+      </div>
+      <div class="summary-output">
+        <span class="so-model">Classifications</span>
+        <span class="so-count">~145 products</span>
+      </div>
+      <div class="summary-output">
+        <span class="so-model">Clusters</span>
+        <span class="so-count">~482 products</span>
+      </div>
+      <div class="summary-output">
+        <span class="so-model">Supplier Scores</span>
+        <span class="so-count">20 suppliers</span>
+      </div>
+      <div class="summary-output">
+        <span class="so-model">Price Suggestions</span>
+        <span class="so-count">~659 generated</span>
+      </div>
+    </div>
+
+    <div class="reveal reveal-delay-4" style="margin-top: 48px;">
+      <span class="label-sm">Alert Generation</span>
+      <div class="alerts-grid" style="margin-top: 16px;">
+        <div class="alert-item">
+          <div class="alert-model">Demand Forecaster</div>
+          <div class="alert-trigger">Stockout &le; 7 days</div>
+          <span class="severity-badge severity-critical">CRITICAL</span>
+        </div>
+        <div class="alert-item">
+          <div class="alert-model">Supplier Scorer</div>
+          <div class="alert-trigger">Rating = Unacceptable</div>
+          <span class="severity-badge severity-critical">CRITICAL</span>
+        </div>
+        <div class="alert-item">
+          <div class="alert-model">Price Anomaly</div>
+          <div class="alert-trigger">is_anomaly = true</div>
+          <span class="severity-badge severity-high">HIGH</span>
+        </div>
+        <div class="alert-item">
+          <div class="alert-model">Sales Anomaly</div>
+          <div class="alert-trigger">Score &le; &minus;0.8</div>
+          <span class="severity-badge severity-high">HIGH</span>
+        </div>
+        <div class="alert-item">
+          <div class="alert-model">Price Suggester</div>
+          <div class="alert-trigger">Change &gt; 10%, conf &ge; 0.7</div>
+          <span class="severity-badge severity-high">HIGH</span>
+        </div>
+        <div class="alert-item">
+          <div class="alert-model">ABC-XYZ Classifier</div>
+          <div class="alert-trigger">Class A product changes</div>
+          <span class="severity-badge severity-medium">MEDIUM</span>
+        </div>
+      </div>
+    </div>
+
+    <p class="reveal reveal-delay-5" style="margin-top: 48px; font-family: var(--mono); font-size: 10px; letter-spacing: 1px; text-transform: uppercase; color: var(--text-muted); text-align: center;">
+      Alert lifecycle: New &rarr; Acknowledged &rarr; In Progress &rarr; Resolved / Dismissed
+    </p>
+  </div>
+</section>
+
+<script>
+(function() {
+  // Elements
+  const sections = document.querySelectorAll('section');
+  const navLinks = document.querySelectorAll('#nav a');
+  const progressBar = document.getElementById('progress');
+  const keyHint = document.getElementById('keyHint');
+  const reveals = document.querySelectorAll('.reveal');
+
+  // Section IDs
+  const sectionIds = Array.from(sections).map(s => s.id);
+
+  // Track current section
+  let currentIdx = 0;
+
+  // Intersection Observer for navigation highlighting
+  const navObserver = new IntersectionObserver((entries) => {
+    entries.forEach(entry => {
+      if (entry.isIntersecting) {
+        const id = entry.target.id;
+        const idx = sectionIds.indexOf(id);
+        if (idx !== -1) {
+          currentIdx = idx;
+          navLinks.forEach(l => l.classList.remove('active'));
+          const active = document.querySelector(`#nav a[href="#${id}"]`);
+          if (active) active.classList.add('active');
+        }
+      }
+    });
+  }, { threshold: 0.45 });
+
+  sections.forEach(s => navObserver.observe(s));
+
+  // Intersection Observer for reveal animations
+  const revealObserver = new IntersectionObserver((entries) => {
+    entries.forEach(entry => {
+      if (entry.isIntersecting) {
+        entry.target.classList.add('visible');
+      }
+    });
+  }, { threshold: 0.15, rootMargin: '0px 0px -40px 0px' });
+
+  reveals.forEach(r => revealObserver.observe(r));
+
+  // Progress bar
+  function updateProgress() {
+    const scrollTop = window.scrollY || document.documentElement.scrollTop;
+    const docHeight = document.documentElement.scrollHeight - window.innerHeight;
+    const pct = docHeight > 0 ? (scrollTop / docHeight) * 100 : 0;
+    progressBar.style.width = pct + '%';
+  }
+
+  window.addEventListener('scroll', updateProgress, { passive: true });
+
+  // Keyboard navigation
+  let hasUsedKeyboard = false;
+
+  document.addEventListener('keydown', (e) => {
+    if (e.key === 'ArrowDown' || e.key === 'ArrowRight') {
+      e.preventDefault();
+      if (currentIdx < sections.length - 1) {
+        sections[currentIdx + 1].scrollIntoView({ behavior: 'smooth' });
+      }
+    } else if (e.key === 'ArrowUp' || e.key === 'ArrowLeft') {
+      e.preventDefault();
+      if (currentIdx > 0) {
+        sections[currentIdx - 1].scrollIntoView({ behavior: 'smooth' });
+      }
+    }
+
+    if (!hasUsedKeyboard) {
+      hasUsedKeyboard = true;
+      keyHint.classList.add('hidden');
+    }
+  });
+
+  // Hide key hint after 6 seconds
+  setTimeout(() => {
+    if (!hasUsedKeyboard) keyHint.classList.add('hidden');
+  }, 6000);
+
+  // Smooth scroll for nav links and model card links
+  document.querySelectorAll('a[href^="#"]').forEach(a => {
+    a.addEventListener('click', (e) => {
+      e.preventDefault();
+      const target = document.querySelector(a.getAttribute('href'));
+      if (target) target.scrollIntoView({ behavior: 'smooth' });
+    });
+  });
+
+  // Initial state
+  updateProgress();
+  document.querySelectorAll('#cover .reveal').forEach(r => r.classList.add('visible'));
+})();
+</script>
+
+</body>
+</html>

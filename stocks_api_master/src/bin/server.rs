@@ -6,6 +6,7 @@ use std::env;
 use tokio::net::TcpListener;
 
 use stocks_api::{common::security, features};
+use stocks_api::common::tenant_pool::{TenantPoolManager, resolve_tenant_pool};
 use stocks_api::openapi::ApiDoc;
 
 use tower_http::cors::CorsLayer;
@@ -30,6 +31,8 @@ async fn main() -> Result<()> {
         "OK"
     }
 
+    let tenant_pool_manager = TenantPoolManager::new(pool.clone(), db_url.clone());
+
     // 🔐 Routes protégées MASTER (platform admin uniquement)
     let protected_master_routes = Router::new()
         .nest(
@@ -39,12 +42,20 @@ async fn main() -> Result<()> {
         .layer(from_fn(features::auth::middleware::require_platform_admin))
         .layer(from_fn(features::auth::middleware::require_auth));
 
-    // 🔐 Routes protégées TENANT (commerce) — à compléter avec les routes métier
+    // 🔐 Routes protégées TENANT (commerce)
     let protected_tenant_routes = Router::new()
-        .layer(from_fn_with_state(
-            pool.clone(),
-            features::auth::middleware::require_tenant_match_subdomain,
-        ))
+        .nest("/api/:commerce_id/products", features::products::router::product_routes())
+        .nest("/api/:commerce_id/suppliers", features::suppliers::router::suppliers_routes())
+        .nest("/api/:commerce_id/stocks", features::stocks::router::stock_routes())
+        .nest("/api/:commerce_id/orders", features::orders::router::order_routes())
+        .nest("/api/:commerce_id/sales", features::sales::router::sales_routes())
+        .nest("/api/:commerce_id/users", features::users::router::user_routes())
+        .nest("/api/:commerce_id/ai/insights", features::ai_insights::router::ai_insights_routes())
+        .nest("/api/:commerce_id/alerts", features::alerts::router::alert_routes())
+        .nest("/api/:commerce_id/ai/predictions", features::ai_predictions::router::ai_prediction_routes())
+        .nest("/api/:commerce_id/kpis", features::global_kpis::router::global_kpis_routes())
+        .nest("/api/:commerce_id/restocks", features::restocks::router::restock_routes())
+        .layer(from_fn_with_state(tenant_pool_manager, resolve_tenant_pool))
         .layer(from_fn(features::auth::middleware::require_auth));
 
     let cors = CorsLayer::new()
@@ -66,6 +77,7 @@ async fn main() -> Result<()> {
             Method::GET,
             Method::POST,
             Method::PUT,
+            Method::PATCH,
             Method::DELETE,
             Method::OPTIONS,
         ])

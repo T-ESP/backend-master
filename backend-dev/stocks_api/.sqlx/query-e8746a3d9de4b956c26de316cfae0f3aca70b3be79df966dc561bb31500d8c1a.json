@@ -1,0 +1,14 @@
+{
+  "db_name": "PostgreSQL",
+  "query": "DELETE FROM supplier_sup WHERE id_sup = $1",
+  "describe": {
+    "columns": [],
+    "parameters": {
+      "Left": [
+        "Int4"
+      ]
+    },
+    "nullable": []
+  },
+  "hash": "e8746a3d9de4b956c26de316cfae0f3aca70b3be79df966dc561bb31500d8c1a"
+}
