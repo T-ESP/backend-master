@@ -10,7 +10,7 @@ use crate::common::responses::{SuccessResponse, ErrorResponse};
 use crate::common::error_codes;
 use serde_json::{json, Value};
 
-use super::dto::{CreateProductRequest, UpdateProductRequest, StockUpdateRequest, SearchParams, ProductResponse, ProductLightResponse};
+use super::dto::{CreateProductRequest, UpdateProductRequest, StockUpdateRequest, AddPriceRequest, SearchParams, ProductResponse, ProductLightResponse};
 use super::services::ProductService;
 
 /// GET /api/products/light - Light search for products
@@ -506,6 +506,65 @@ pub async fn delete_product(
             (
                 StatusCode::INTERNAL_SERVER_ERROR,
                 Json(ErrorResponse::new(code.to_string(), message))
+            ).into_response()
+        }
+    }
+}
+
+/// POST /products/:id/prices - Add a selling price entry
+#[utoipa::path(
+    post,
+    path = "/products/{id}/prices",
+    tag = "products",
+    params(("id" = i32, Path, description = "Product ID")),
+    request_body = AddPriceRequest,
+    responses(
+        (status = 201, description = "Price added successfully"),
+        (status = 404, description = "Product not found", body = ErrorResponse),
+        (status = 500, description = "Database error", body = ErrorResponse)
+    )
+)]
+pub async fn add_product_price(
+    Path(id): Path<i32>,
+    Extension(pool): Extension<PgPool>,
+    Json(req): Json<AddPriceRequest>,
+) -> Response {
+    match ProductService::product_exists(&pool, id).await {
+        Ok(false) => {
+            return (
+                StatusCode::NOT_FOUND,
+                Json(ErrorResponse::new(
+                    error_codes::NOT_FOUND.to_string(),
+                    format!("Produit avec ID {} non trouvé", id)
+                ))
+            ).into_response();
+        }
+        Ok(true) => {}
+        Err(e) => {
+            eprintln!("Database error: {}", e);
+            return (
+                StatusCode::INTERNAL_SERVER_ERROR,
+                Json(ErrorResponse::new(
+                    error_codes::DATABASE_ERROR.to_string(),
+                    "Erreur de base de données".to_string()
+                ))
+            ).into_response();
+        }
+    }
+
+    match ProductService::add_product_price(&pool, id, req.selling_price).await {
+        Ok(price) => (
+            StatusCode::CREATED,
+            Json(SuccessResponse::new(price, "Price added successfully".to_string()))
+        ).into_response(),
+        Err(e) => {
+            eprintln!("Database error: {}", e);
+            (
+                StatusCode::INTERNAL_SERVER_ERROR,
+                Json(ErrorResponse::new(
+                    error_codes::DATABASE_ERROR.to_string(),
+                    "Erreur lors de l'ajout du prix".to_string()
+                ))
             ).into_response()
         }
     }

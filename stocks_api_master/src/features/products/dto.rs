@@ -67,6 +67,19 @@ pub struct CreateProductRequest {
 }
 
 #[derive(Debug, Deserialize, ToSchema)]
+pub struct AddPriceRequest {
+    pub selling_price: f64,
+}
+
+#[derive(Debug, Serialize, ToSchema)]
+pub struct ProductPriceResponse {
+    pub id: i32,
+    pub product_ref: i32,
+    pub selling_price: f64,
+    pub created_at: Option<chrono::DateTime<chrono::Utc>>,
+}
+
+#[derive(Debug, Deserialize, ToSchema)]
 pub struct UpdateProductRequest {
     pub name: Option<String>,
     pub category: Option<String>,
