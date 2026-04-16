@@ -74,6 +74,14 @@ fn map_tenant_error(error: TenantServiceError) -> Response {
                 format!("Security error: {}", err),
             )),
         ).into_response(),
+
+        TenantServiceError::DatabaseProvisioning(msg) => (
+            StatusCode::INTERNAL_SERVER_ERROR,
+            Json(ErrorResponse::new(
+                error_codes::INTERNAL_SERVER_ERROR.to_string(),
+                format!("Database provisioning error: {}", msg),
+            )),
+        ).into_response(),
     }
 }
 
@@ -104,8 +112,11 @@ pub async fn create_tenant(
         ).into_response();
     }
 
+    let database_url = std::env::var("DATABASE_URL").unwrap_or_default();
+
     match service::create_tenant(
         &pool,
+        &database_url,
         payload.name.clone(),
         payload.slug.clone(),
         payload.email.clone(),

@@ -1,10 +1,12 @@
-use sqlx::PgPool;
+use sqlx::{PgPool, postgres::PgPoolOptions};
 use uuid::Uuid;
 use rand::{distributions::Alphanumeric, Rng};
 
 use crate::common::security;
 use super::model::Tenant;
 use super::repository;
+
+const TENANT_SCHEMA: &str = include_str!("../../../sql/tenant_schema.sql");
 
 #[derive(Debug)]
 pub enum TenantServiceError {
@@ -13,6 +15,7 @@ pub enum TenantServiceError {
     NotFound,
     Database(sqlx::Error),
     Security(security::SecurityError),
+    DatabaseProvisioning(String),
 }
 
 impl From<sqlx::Error> for TenantServiceError {
@@ -35,6 +38,7 @@ pub struct CreatedTenant {
 
 pub async fn create_tenant(
     pool: &PgPool,
+    database_url: &str,
     name: String,
     slug: String,
     email: String,
@@ -96,6 +100,41 @@ pub async fn create_tenant(
         .bind(&db_name)
         .execute(pool)
         .await?;
+
+    // Create the tenant database
+    sqlx::query(&format!("CREATE DATABASE \"{}\"", db_name))
+        .execute(pool)
+        .await
+        .map_err(|e| TenantServiceError::DatabaseProvisioning(
+            format!("Failed to create database '{}': {}", db_name, e)
+        ))?;
+
+    // Connect to the new database and apply the schema
+    let base_url = database_url
+        .rfind('/')
+        .map(|i| &database_url[..i])
+        .ok_or_else(|| TenantServiceError::DatabaseProvisioning(
+            "Invalid DATABASE_URL format".to_string()
+        ))?;
+
+    let tenant_url = format!("{}/{}", base_url, db_name);
+
+    let tenant_pool = PgPoolOptions::new()
+        .max_connections(1)
+        .connect(&tenant_url)
+        .await
+        .map_err(|e| TenantServiceError::DatabaseProvisioning(
+            format!("Failed to connect to new database '{}': {}", db_name, e)
+        ))?;
+
+    sqlx::raw_sql(TENANT_SCHEMA)
+        .execute(&tenant_pool)
+        .await
+        .map_err(|e| TenantServiceError::DatabaseProvisioning(
+            format!("Failed to apply schema to '{}': {}", db_name, e)
+        ))?;
+
+    tenant_pool.close().await;
 
     Ok(CreatedTenant {
         id,

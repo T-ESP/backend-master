@@ -37,9 +37,9 @@ pub async fn login(
     match services::authenticate_user(&pool, &payload.email, &payload.password).await {
         Ok(user) => {
 
-            // 🔐 JWT aligné SaaS commerce
             match security::generate_jwt(
                 user.commerce_id,
+                user.slug,
                 &user.email,
                 &user.role,
             ) {
