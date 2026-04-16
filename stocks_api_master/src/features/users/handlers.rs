@@ -68,7 +68,7 @@ pub async fn create_user(Extension(pool): Extension<PgPool>, Json(payload): Json
         (status = 500, description = "Database error", body = ErrorResponse)
     )
 )]
-pub async fn update_user(Path(id): Path<i32>, Extension(pool): Extension<PgPool>, Json(payload): Json<UpdateUserRequest>) -> Response {
+pub async fn update_user(Path((_, id)): Path<(String, i32)>, Extension(pool): Extension<PgPool>, Json(payload): Json<UpdateUserRequest>) -> Response {
     match services::update_user(&pool, id, payload).await {
         Ok(_) => (
             StatusCode::OK,
@@ -96,7 +96,7 @@ pub async fn update_user(Path(id): Path<i32>, Extension(pool): Extension<PgPool>
         (status = 500, description = "Database error", body = ErrorResponse)
     )
 )]
-pub async fn delete_user(Path(id): Path<i32>, Extension(pool): Extension<PgPool>) -> Response {
+pub async fn delete_user(Path((_, id)): Path<(String, i32)>, Extension(pool): Extension<PgPool>) -> Response {
     match services::delete_user(&pool, id).await {
         Ok(_) => (
             StatusCode::NO_CONTENT,

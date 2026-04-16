@@ -96,7 +96,7 @@ pub async fn get_products(
     )
 )]
 pub async fn get_product_by_id(
-    Path(id): Path<i32>,
+    Path((_, id)): Path<(String, i32)>,
     Extension(pool): Extension<PgPool>,
 ) -> Response {
     match ProductService::get_product_by_id(&pool, id).await {
@@ -119,7 +119,7 @@ pub async fn get_product_by_id(
 
 /// GET /api/products/reference/:reference - Get product by reference
 pub async fn get_product_by_reference(
-    Path(reference): Path<String>,
+    Path((_, reference)): Path<(String, String)>,
     Extension(pool): Extension<PgPool>,
 ) -> Response {
     match ProductService::get_product_by_reference(&pool, &reference).await {
@@ -155,7 +155,7 @@ pub async fn get_product_by_reference(
     )
 )]
 pub async fn get_product_stock(
-    Path(id): Path<i32>,
+    Path((_, id)): Path<(String, i32)>,
     Extension(pool): Extension<PgPool>,
 ) -> Response {
     let row = sqlx::query(
@@ -217,7 +217,7 @@ pub async fn get_product_stock(
     )
 )]
 pub async fn update_stock(
-    Path(id): Path<i32>,
+    Path((_, id)): Path<(String, i32)>,
     Extension(pool): Extension<PgPool>,
     Json(payload): Json<StockUpdateRequest>,
 ) -> Response {
@@ -351,7 +351,7 @@ pub async fn create_product(
     )
 )]
 pub async fn update_product(
-    Path(id): Path<i32>,
+    Path((_, id)): Path<(String, i32)>,
     Extension(pool): Extension<PgPool>,
     Json(product): Json<UpdateProductRequest>,
 ) -> Response {
@@ -450,7 +450,7 @@ pub async fn update_product(
     )
 )]
 pub async fn delete_product(
-    Path(id): Path<i32>,
+    Path((_, id)): Path<(String, i32)>,
     Extension(pool): Extension<PgPool>,
 ) -> Response {
     // Check if product exists
@@ -525,7 +525,7 @@ pub async fn delete_product(
     )
 )]
 pub async fn add_product_price(
-    Path(id): Path<i32>,
+    Path((_, id)): Path<(String, i32)>,
     Extension(pool): Extension<PgPool>,
     Json(req): Json<AddPriceRequest>,
 ) -> Response {

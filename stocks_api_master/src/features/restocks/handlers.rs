@@ -60,7 +60,7 @@ pub async fn get_restocks(
     )
 )]
 pub async fn get_restock_by_id(
-    Path(id): Path<i32>,
+    Path((_, id)): Path<(String, i32)>,
     Extension(pool): Extension<PgPool>,
 ) -> Response {
     match RestockService::get_restock_by_id(&pool, id).await {
@@ -197,7 +197,7 @@ pub async fn create_restock(
     )
 )]
 pub async fn update_restock(
-    Path(id): Path<i32>,
+    Path((_, id)): Path<(String, i32)>,
     Extension(pool): Extension<PgPool>,
     Json(req): Json<UpdateRestockRequest>,
 ) -> Response {
@@ -271,7 +271,7 @@ pub async fn get_restock_stats(
     )
 )]
 pub async fn get_restock_stats_by_product(
-    Path(product_id): Path<i32>,
+    Path((_, product_id)): Path<(String, i32)>,
     Extension(pool): Extension<PgPool>,
 ) -> Response {
     match RestockService::get_restock_stats(&pool, Some(product_id)).await {
@@ -306,7 +306,7 @@ pub async fn get_restock_stats_by_product(
     )
 )]
 pub async fn get_restocks_by_product(
-    Path(product_id): Path<i32>,
+    Path((_, product_id)): Path<(String, i32)>,
     Query(params): Query<RestockSearchParams>,
     Extension(pool): Extension<PgPool>,
 ) -> Response {
