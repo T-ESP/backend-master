@@ -13,6 +13,42 @@ pub struct SupplierResponse {
     pub updated_at: Option<chrono::NaiveDateTime>,
 }
 
+#[derive(Serialize, ToSchema)]
+pub struct SupplierProductItem {
+    pub id: i32,
+    pub name: String,
+    pub category: String,
+    pub reference: String,
+    pub stock_quantity: i32,
+    pub buying_price: f64,
+    pub status: String,
+}
+
+#[derive(Serialize, ToSchema)]
+pub struct SupplierScoreInfo {
+    pub overall_score: f64,
+    pub delivery_score: Option<f64>,
+    pub quality_score: Option<f64>,
+    pub lead_time_score: Option<f64>,
+    pub fulfillment_score: Option<f64>,
+    pub rating: Option<String>,
+    pub total_restocks: Option<i32>,
+}
+
+#[derive(Serialize, ToSchema)]
+pub struct SupplierProfileResponse {
+    pub id: i32,
+    pub name: String,
+    pub email: String,
+    pub phone: Option<String>,
+    pub address: String,
+    pub product_count: i64,
+    pub products: Vec<SupplierProductItem>,
+    pub score: Option<SupplierScoreInfo>,
+    pub created_at: Option<chrono::NaiveDateTime>,
+    pub updated_at: Option<chrono::NaiveDateTime>,
+}
+
 #[derive(Deserialize, Validate, ToSchema)]
 pub struct CreateSupplierRequest {
     #[validate(length(min = 1, max = 255))]
@@ -174,7 +210,7 @@ mod tests {
 
     #[test]
     fn test_supplier_response_with_timestamps() {
-        let now = chrono::NaiveDateTime::from_timestamp_opt(1609459200, 0).unwrap();
+        let now = chrono::DateTime::from_timestamp(1609459200, 0).unwrap().naive_utc();
 
         let supplier = SupplierResponse {
             id: 1,

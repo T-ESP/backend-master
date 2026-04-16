@@ -3,7 +3,43 @@ use axum::http::StatusCode;
 use sqlx::PgPool;
 use validator::Validate;
 use crate::common::{responses::{SuccessResponse, ErrorResponse}, error_codes};
-use super::{dto::{SupplierResponse, CreateSupplierRequest, UpdateSupplierRequest}, services};
+use super::{dto::{CreateSupplierRequest, UpdateSupplierRequest}, services};
+
+pub async fn get_supplier_profile(
+    Path(id): Path<i32>,
+    Extension(pool): Extension<PgPool>,
+) -> Response {
+    if id <= 0 {
+        return (
+            StatusCode::BAD_REQUEST,
+            Json(ErrorResponse::new(
+                error_codes::INVALID_INPUT.to_string(),
+                "Invalid supplier ID".to_string()
+            ))
+        ).into_response();
+    }
+
+    match services::get_supplier_profile(&pool, id).await {
+        Ok(Some(profile)) => (
+            StatusCode::OK,
+            Json(SuccessResponse::new(profile, "Supplier profile retrieved successfully".to_string()))
+        ).into_response(),
+        Ok(None) => (
+            StatusCode::NOT_FOUND,
+            Json(ErrorResponse::new(
+                error_codes::NOT_FOUND.to_string(),
+                "Supplier not found".to_string()
+            ))
+        ).into_response(),
+        Err(_) => (
+            StatusCode::INTERNAL_SERVER_ERROR,
+            Json(ErrorResponse::new(
+                error_codes::DATABASE_ERROR.to_string(),
+                "Failed to retrieve supplier profile".to_string()
+            ))
+        ).into_response()
+    }
+}
 
 #[utoipa::path(
     get,

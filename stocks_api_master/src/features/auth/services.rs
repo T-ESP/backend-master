@@ -6,6 +6,7 @@ use crate::common::security::{self, SecurityError};
 #[derive(Debug)]
 pub struct AuthenticatedUser {
     pub commerce_id: Option<Uuid>,
+    pub slug: Option<String>,
     pub email: String,
     pub role: String,
 }
@@ -54,6 +55,7 @@ pub async fn authenticate_user(
         if security::verify_password(password, &password_hash)? {
             return Ok(AuthenticatedUser {
                 commerce_id: None,
+                slug: None,
                 email: email_db,
                 role: "platform_admin".to_string(),
             });
@@ -65,7 +67,7 @@ pub async fn authenticate_user(
     // 2️⃣ Commerce (tenant)
     if let Some(row) = sqlx::query(
         r#"
-        SELECT id, email, password_hash
+        SELECT id, email, slug, password_hash
         FROM commerces
         WHERE email = $1
         "#,
@@ -76,11 +78,13 @@ pub async fn authenticate_user(
     {
         let id: Uuid = row.get("id");
         let email_db: String = row.get("email");
+        let slug: String = row.get("slug");
         let password_hash: String = row.get("password_hash");
 
         if security::verify_password(password, &password_hash)? {
             return Ok(AuthenticatedUser {
                 commerce_id: Some(id),
+                slug: Some(slug),
                 email: email_db,
                 role: "commerce".to_string(),
             });

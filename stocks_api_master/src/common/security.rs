@@ -11,6 +11,7 @@ const DEFAULT_EXPIRATION_HOURS: i64 = 24;
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct Claims {
     pub commerce_id: Option<Uuid>,
+    pub slug: Option<String>,
     pub email: String,
     pub role: String,
     pub exp: usize,
@@ -74,6 +75,7 @@ pub fn verify_password(password: &str, hashed: &str) -> Result<bool, SecurityErr
 
 pub fn generate_jwt(
     commerce_id: Option<Uuid>,
+    slug: Option<String>,
     email: &str,
     role: &str,
 ) -> Result<String, SecurityError> {
@@ -84,6 +86,7 @@ pub fn generate_jwt(
 
     let claims = Claims {
         commerce_id,
+        slug,
         email: email.to_string(),
         role: role.to_string(),
         exp: expiration.timestamp() as usize,

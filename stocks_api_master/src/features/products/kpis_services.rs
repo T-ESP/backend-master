@@ -17,7 +17,6 @@ impl ProductKpisService {
         });
         let end_date = params.end_date.unwrap_or_else(|| chrono::Utc::now().date_naive());
 
-        // Prix actuel du produit
         let current_product = sqlx::query(
             "SELECT buying_price_pro FROM products_pro WHERE id_pro = $1"
         )
@@ -29,7 +28,6 @@ impl ProductKpisService {
             .to_f64()
             .unwrap_or(0.0);
 
-        // Prix de vente actuel (le plus récent)
         let current_selling_price_row = sqlx::query(
             "SELECT price_prp
              FROM productprices_prp
@@ -48,7 +46,6 @@ impl ProductKpisService {
                 .unwrap_or(0.0)
         });
 
-        // Calcul de la marge
         let (gross_margin, margin_rate) = if let Some(selling_price) = current_selling_price {
             let margin = selling_price - current_buying_price;
             let rate = if current_buying_price > 0.0 {
@@ -61,7 +58,6 @@ impl ProductKpisService {
             (None, None)
         };
 
-        // Statistiques sur les prix d'achat (historique des restocks)
         let buying_stats = sqlx::query(
             "SELECT
                 MIN(buying_price_prr) as min_price,
@@ -90,7 +86,6 @@ impl ProductKpisService {
             .and_then(|v| v.to_f64());
         let buying_price_changes_count: i64 = buying_stats.try_get("changes_count")?;
 
-        // Variation du prix d'achat (premier vs dernier)
         let buying_price_variation = if let (Some(min), Some(max)) = (buying_price_min, buying_price_max) {
             if min > 0.0 {
                 Some(((max - min) / min) * 100.0)
@@ -101,7 +96,6 @@ impl ProductKpisService {
             None
         };
 
-        // Statistiques sur les prix de vente
         let selling_stats = sqlx::query(
             "SELECT
                 MIN(price_prp) as min_price,
@@ -196,12 +190,6 @@ impl ProductKpisService {
 
         let days_since_last_restock = (chrono::Utc::now() - date_last_reassor).num_days() as i32;
 
-        // Calculer le nombre de jours où le produit était en rupture de stock
-        // On considère qu'une rupture = status "out_of_stock" ou stock_quantity = 0
-        // Comme on n'a pas d'historique de stock dans la DB, on va estimer via les restocks
-
-        // Compter les périodes de rupture basées sur les restocks (approximation)
-        // Les restocks sont liés aux produits via line_restock_lrs
         let stockout_stats = sqlx::query(
             "SELECT COUNT(DISTINCT r.id_res) as stockout_count
              FROM restock_res r
@@ -219,7 +207,6 @@ impl ProductKpisService {
 
         let stockout_count: i64 = stockout_stats.try_get("stockout_count")?;
 
-        // Calculer la durée moyenne entre restocks (approximation de durée de rupture)
         let avg_duration_row = sqlx::query(
             "SELECT AVG(days_between) as avg_days
              FROM (
@@ -246,17 +233,14 @@ impl ProductKpisService {
             None
         };
 
-        // Calculer le taux de rupture (% du temps en rupture)
         let total_days = (end_date - start_date).num_days() as f64;
         let stockout_rate = if stockout_count > 0 && total_days > 0.0 {
-            // Estimer les jours en rupture
             let estimated_stockout_days = stockout_count as f64 * avg_stockout_duration_days.unwrap_or(3.0);
             Some((estimated_stockout_days / total_days) * 100.0)
         } else {
             Some(0.0)
         };
 
-        // Calculer la vélocité de vente pour recommander un stock de sécurité
         let sales_velocity = sqlx::query(
             "SELECT COALESCE(SUM(lor.quantity_lor), 0) as total_sold
              FROM line_order_lor lor
@@ -278,7 +262,6 @@ impl ProductKpisService {
             0.0
         };
 
-        // Stock de sécurité recommandé = 7 jours de ventes (approche simple)
         let safety_stock_recommended = if daily_sales_velocity > 0.0 {
             Some((daily_sales_velocity * 7.0).ceil() as i32)
         } else {
@@ -341,7 +324,6 @@ impl ProductKpisService {
             None
         };
 
-        // Calcul de la rotation (simplifié)
         let stock = sqlx::query("SELECT stock_quantity_pro FROM products_pro WHERE id_pro = $1")
             .bind(product_id)
             .fetch_one(pool)
@@ -372,7 +354,42 @@ impl ProductKpisService {
             None
         };
 
-        let sales_trend = "stable".to_string();
+        let mid_date = start_date + chrono::Duration::days((days_in_period / 2.0) as i64);
+        let first_half = sqlx::query(
+            "SELECT COALESCE(SUM(lor.quantity_lor), 0) as qty
+             FROM line_order_lor lor
+             JOIN order_ord o ON lor.order_id_lor = o.id_ord
+             WHERE lor.product_id_lor = $1
+               AND o.order_date_ord >= $2 AND o.order_date_ord < $3"
+        )
+        .bind(product_id)
+        .bind(start_date)
+        .bind(mid_date)
+        .fetch_one(pool)
+        .await?;
+        let second_half = sqlx::query(
+            "SELECT COALESCE(SUM(lor.quantity_lor), 0) as qty
+             FROM line_order_lor lor
+             JOIN order_ord o ON lor.order_id_lor = o.id_ord
+             WHERE lor.product_id_lor = $1
+               AND o.order_date_ord >= $2 AND o.order_date_ord <= $3"
+        )
+        .bind(product_id)
+        .bind(mid_date)
+        .bind(end_date)
+        .fetch_one(pool)
+        .await?;
+        let first_qty: i64 = first_half.try_get("qty").unwrap_or(0);
+        let second_qty: i64 = second_half.try_get("qty").unwrap_or(0);
+        let sales_trend = if first_qty == 0 && second_qty == 0 {
+            "no_data"
+        } else if second_qty > (first_qty as f64 * 1.1) as i64 {
+            "growing"
+        } else if second_qty < (first_qty as f64 * 0.9) as i64 {
+            "declining"
+        } else {
+            "stable"
+        }.to_string();
 
         Ok(SalesRotationKpis {
             quantity_sold: quantity_sold as i32,
@@ -400,7 +417,6 @@ impl ProductKpisService {
         });
         let end_date = params.end_date.unwrap_or_else(|| chrono::Utc::now().date_naive());
 
-        // Récupérer le prix d'achat actuel
         let product = sqlx::query("SELECT buying_price_pro FROM products_pro WHERE id_pro = $1")
             .bind(product_id)
             .fetch_one(pool)
@@ -410,7 +426,6 @@ impl ProductKpisService {
             .to_f64()
             .unwrap_or(0.0);
 
-        // Calculer les ventes
         let sales = sqlx::query(
             "SELECT
                 COALESCE(SUM(lor.quantity_lor), 0) as quantity_sold,
@@ -447,7 +462,6 @@ impl ProductKpisService {
             None
         };
 
-        // Calculer le CA total de tous les produits sur la période
         let total_revenue_row = sqlx::query(
             "SELECT COALESCE(SUM(lor.line_total_lor), 0) as total_revenue
              FROM line_order_lor lor
@@ -470,7 +484,6 @@ impl ProductKpisService {
             None
         };
 
-        // Calculer le profit total de tous les produits sur la période
         let total_profit_row = sqlx::query(
             "SELECT
                 COALESCE(SUM(lor.line_total_lor), 0) as total_revenue,
@@ -551,7 +564,6 @@ impl ProductKpisService {
         let avg_restock_cost = restock_stats.try_get::<Option<rust_decimal::Decimal>, _>("avg_cost")?
             .and_then(|v| v.to_f64());
 
-        // Fréquence de réapprovisionnement
         let days_in_period = (end_date - start_date).num_days() as f64;
         let restock_frequency_days = if restock_count > 1 {
             Some(days_in_period / restock_count as f64)
@@ -559,7 +571,6 @@ impl ProductKpisService {
             None
         };
 
-        // Taux de réception et d'annulation
         let status_stats = sqlx::query(
             "SELECT
                 COUNT(CASE WHEN r.status_res = 'received' THEN 1 END) as received_count,
@@ -613,7 +624,6 @@ impl ProductKpisService {
         product_id: i32,
         params: &KpiPeriodParams,
     ) -> Result<PredictionsAlertsKpis, sqlx::Error> {
-        // Récupérer le stock actuel
         let product = sqlx::query("SELECT stock_quantity_pro FROM products_pro WHERE id_pro = $1")
             .bind(product_id)
             .fetch_one(pool)
@@ -621,25 +631,21 @@ impl ProductKpisService {
 
         let current_stock: i32 = product.try_get("stock_quantity_pro")?;
 
-        // Calculer la vélocité de vente
         let sales_kpis = Self::get_sales_rotation_kpis(pool, product_id, params).await?;
         let sales_velocity = sales_kpis.sales_velocity_per_day.unwrap_or(0.0);
 
-        // Jours de couverture
         let days_of_coverage = if sales_velocity > 0.0 {
             Some(current_stock as f64 / sales_velocity)
         } else {
             None
         };
 
-        // Date estimée de rupture
         let estimated_stockout_date = if let Some(days) = days_of_coverage {
             Some(chrono::Utc::now() + chrono::Duration::days(days as i64))
         } else {
             None
         };
 
-        // Statut d'alerte
         let alert_status = if let Some(days) = days_of_coverage {
             if days < 7.0 {
                 "imminent_stockout"
@@ -652,21 +658,18 @@ impl ProductKpisService {
             "normal"
         }.to_string();
 
-        // Point de commande optimal (simplifié: 2 semaines de couverture)
         let optimal_reorder_point = if sales_velocity > 0.0 {
             Some((sales_velocity * 14.0) as i32)
         } else {
             None
         };
 
-        // Quantité optimale (simplifié: 1 mois de couverture)
         let optimal_reorder_quantity = if sales_velocity > 0.0 {
             Some((sales_velocity * 30.0) as i32)
         } else {
             None
         };
 
-        // Try to fetch AI-powered forecast data
         let ai_forecast = sqlx::query(
             "SELECT total_predicted_demand, avg_daily_demand, recommended_stock,
                     reorder_quantity, days_until_stockout, urgency, mape
@@ -726,31 +729,26 @@ impl ProductKpisService {
         let profitability_kpis = Self::get_profitability_kpis(pool, product_id, params).await?;
         let stock_kpis = Self::get_stock_availability_kpis(pool, product_id, params).await?;
 
-        // Score de popularité (basé sur les ventes)
         let popularity_score = if sales_kpis.quantity_sold > 0 {
             (sales_kpis.quantity_sold as f64).min(100.0)
         } else {
             0.0
         };
 
-        // Score de rentabilité (basé sur le ROI)
         let profitability_score = if let Some(roi) = profitability_kpis.roi {
             roi.min(100.0).max(0.0)
         } else {
             0.0
         };
 
-        // Score de fiabilité (basé sur l'absence de ruptures)
         let reliability_score = if stock_kpis.stockout_count == 0 {
             100.0
         } else {
             (100.0 - (stock_kpis.stockout_count as f64 * 10.0)).max(0.0)
         };
 
-        // Score global
         let global_score = (popularity_score + profitability_score + reliability_score) / 3.0;
 
-        // Classification ABC (simplifié)
         let abc_classification = if global_score >= 70.0 {
             "A"
         } else if global_score >= 40.0 {
@@ -759,8 +757,9 @@ impl ProductKpisService {
             "C"
         }.to_string();
 
-        // Catégorie de performance
-        let performance_category = if global_score >= 80.0 {
+        let performance_category = if sales_kpis.quantity_sold == 0 && sales_kpis.order_count == 0 {
+            "new"
+        } else if global_score >= 80.0 {
             "star"
         } else if global_score >= 60.0 {
             "rising"
@@ -770,7 +769,6 @@ impl ProductKpisService {
             "dead"
         }.to_string();
 
-        // Try to fetch AI-powered classification data
         let ai_classification = sqlx::query(
             "SELECT abc_class, xyz_class, combined_class, strategy, priority
              FROM product_classifications
@@ -797,7 +795,6 @@ impl ProductKpisService {
             (false, None, None, None, None, None)
         };
 
-        // Try to fetch AI-powered cluster data
         let ai_cluster = sqlx::query(
             "SELECT cluster_id, cluster_name
              FROM product_clusters
@@ -849,7 +846,6 @@ impl ProductKpisService {
         });
         let end_date = params.end_date.unwrap_or_else(|| chrono::Utc::now().date_naive());
 
-        // Récupérer les infos du produit (catégorie et fournisseur)
         let product = sqlx::query(
             "SELECT category_pro, supplier_id_pro FROM products_pro WHERE id_pro = $1"
         )
@@ -860,7 +856,6 @@ impl ProductKpisService {
         let category: String = product.try_get("category_pro")?;
         let supplier_id: i32 = product.try_get("supplier_id_pro")?;
 
-        // 1. Calculer le CA de ce produit
         let product_revenue_row = sqlx::query(
             "SELECT COALESCE(SUM(lor.line_total_lor), 0) as revenue
              FROM line_order_lor lor
@@ -879,7 +874,6 @@ impl ProductKpisService {
             .to_f64()
             .unwrap_or(0.0);
 
-        // 2. Calculer le CA total de la catégorie
         let category_revenue_row = sqlx::query(
             "SELECT COALESCE(SUM(lor.line_total_lor), 0) as total_revenue
              FROM line_order_lor lor
@@ -899,7 +893,6 @@ impl ProductKpisService {
             .to_f64()
             .unwrap_or(0.0);
 
-        // 3. Calculer le CA moyen des produits de la catégorie (hors ce produit)
         let category_avg_revenue_row = sqlx::query(
             "SELECT COALESCE(AVG(product_revenues.revenue), 0) as avg_revenue
              FROM (
@@ -924,21 +917,18 @@ impl ProductKpisService {
             .to_f64()
             .unwrap_or(0.0);
 
-        // 4. Calculer la performance vs catégorie (% par rapport à la moyenne)
         let performance_vs_category_percent = if category_avg_revenue > 0.0 {
             Some(((product_revenue - category_avg_revenue) / category_avg_revenue) * 100.0)
         } else {
             None
         };
 
-        // 5. Calculer la part de marché dans la catégorie
         let share_in_category_percent = if category_total_revenue > 0.0 {
             Some((product_revenue / category_total_revenue) * 100.0)
         } else {
             None
         };
 
-        // 6. Calculer le rang dans la catégorie (classement par CA)
         let rank_row = sqlx::query(
             "SELECT rank
              FROM (
@@ -963,7 +953,6 @@ impl ProductKpisService {
 
         let rank_in_category: i64 = rank_row.try_get("rank")?;
 
-        // 7. Calculer le CA moyen des produits du même fournisseur (hors ce produit)
         let supplier_avg_revenue_row = sqlx::query(
             "SELECT COALESCE(AVG(product_revenues.revenue), 0) as avg_revenue
              FROM (
@@ -988,7 +977,6 @@ impl ProductKpisService {
             .to_f64()
             .unwrap_or(0.0);
 
-        // 8. Calculer la performance vs fournisseur (% par rapport à la moyenne)
         let performance_vs_supplier_percent = if supplier_avg_revenue > 0.0 {
             Some(((product_revenue - supplier_avg_revenue) / supplier_avg_revenue) * 100.0)
         } else {
@@ -1045,7 +1033,6 @@ impl ProductKpisService {
         });
         let end_date = params.end_date.unwrap_or_else(|| chrono::Utc::now().date_naive());
 
-        // 1. Récupérer l'historique des prix d'achat (depuis productrestockprices_prr)
         let buying_price_rows = sqlx::query(
             "SELECT prr.buying_price_prr, prr.created_at
              FROM productrestockprices_prr prr
@@ -1074,7 +1061,6 @@ impl ProductKpisService {
             })
             .collect();
 
-        // 2. Récupérer l'historique des prix de vente (depuis productprices_prp)
         let selling_price_rows = sqlx::query(
             "SELECT prp.price_prp, prp.created_at
              FROM productprices_prp prp
@@ -1103,13 +1089,9 @@ impl ProductKpisService {
             })
             .collect();
 
-        // 3. Calculer les marges pour chaque point temporel où on a les deux prix
-        // On crée une map pour retrouver rapidement le prix d'achat à une date donnée
         let mut margin_history: Vec<MarginPoint> = Vec::new();
 
-        // Pour chaque prix de vente, on trouve le prix d'achat le plus récent
         for selling_point in &selling_price_history {
-            // Trouver le prix d'achat le plus récent avant ou égal à cette date
             let buying_price_opt = buying_price_history
                 .iter()
                 .filter(|bp| bp.date <= selling_point.date)
