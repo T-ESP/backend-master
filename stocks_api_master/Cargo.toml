@@ -21,6 +21,7 @@ validator      = { version = "0.18", features = ["derive"] }
 utoipa         = { version = "4", features = ["axum_extras", "chrono", "decimal_float"] }
 utoipa-swagger-ui = { version = "7", features = ["axum"] }
 rand           = "0.8"
+rand_distr     = "0.4"
 bcrypt         = "0.15"
 jsonwebtoken   = "9"
 once_cell      = "1.19"

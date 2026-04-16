@@ -24,6 +24,16 @@ pub struct CreateTenantRequest {
     pub siret: Option<String>,
 }
 
+#[derive(Debug, Deserialize, ToSchema)]
+pub struct UpdateTenantRequest {
+    pub name: Option<String>,
+    pub email: Option<String>,
+    pub phone: Option<String>,
+    pub address: Option<String>,
+    pub siret: Option<String>,
+    pub status: Option<String>,
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;

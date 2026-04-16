@@ -15,7 +15,7 @@ use crate::common::{
 use crate::common::security::Claims;
 
 use super::{
-    dto::{CreateTenantRequest, TenantResponse},
+    dto::{CreateTenantRequest, UpdateTenantRequest, TenantResponse},
     model::Tenant,
     service::{self, TenantServiceError},
 };
@@ -196,6 +196,48 @@ pub async fn get_tenant_by_id(
 }
 
 #[utoipa::path(
+    put,
+    path = "/admin/tenants/{id}",
+    tag = "tenants",
+    request_body = UpdateTenantRequest,
+    params(("id" = Uuid, Path, description = "Tenant ID")),
+    responses(
+        (status = 200, description = "Tenant updated", body = inline(SuccessResponse<TenantResponse>)),
+        (status = 403, description = "Forbidden", body = ErrorResponse),
+        (status = 404, description = "Not found", body = ErrorResponse),
+        (status = 500, description = "Internal error", body = ErrorResponse)
+    )
+)]
+pub async fn update_tenant(
+    State(pool): State<PgPool>,
+    Extension(claims): Extension<Claims>,
+    Path(id): Path<Uuid>,
+    Json(payload): Json<UpdateTenantRequest>,
+) -> Response {
+    if claims.role != "platform_admin" {
+        return (
+            StatusCode::FORBIDDEN,
+            Json(ErrorResponse::new(
+                error_codes::FORBIDDEN.to_string(),
+                "Only platform admins can update tenants".to_string(),
+            )),
+        ).into_response();
+    }
+
+    match service::update_tenant(
+        &pool, id,
+        payload.name, payload.email, payload.phone,
+        payload.address, payload.siret, payload.status,
+    ).await {
+        Ok(tenant) => (
+            StatusCode::OK,
+            Json(SuccessResponse::new(tenant_to_response(tenant), "Tenant updated".to_string())),
+        ).into_response(),
+        Err(err) => map_tenant_error(err),
+    }
+}
+
+#[utoipa::path(
     delete,
     path = "/admin/tenants/{id}",
     tag = "tenants",
@@ -216,6 +258,47 @@ pub async fn delete_tenant(
             Json(SuccessResponse::new(
                 serde_json::Value::Null,
                 "Tenant deleted".to_string(),
+            )),
+        ).into_response(),
+        Err(err) => map_tenant_error(err),
+    }
+}
+
+#[utoipa::path(
+    post,
+    path = "/admin/tenants/{id}/seed",
+    tag = "tenants",
+    params(("id" = Uuid, Path, description = "Tenant ID")),
+    responses(
+        (status = 200, description = "Seed started successfully"),
+        (status = 403, description = "Forbidden", body = ErrorResponse),
+        (status = 404, description = "Tenant not found", body = ErrorResponse),
+        (status = 500, description = "Internal error", body = ErrorResponse)
+    )
+)]
+pub async fn seed_tenant(
+    State(pool): State<PgPool>,
+    Extension(claims): Extension<Claims>,
+    Path(id): Path<Uuid>,
+) -> Response {
+    if claims.role != "platform_admin" {
+        return (
+            StatusCode::FORBIDDEN,
+            Json(ErrorResponse::new(
+                error_codes::FORBIDDEN.to_string(),
+                "Only platform admins can seed tenants".to_string(),
+            )),
+        ).into_response();
+    }
+
+    let database_url = std::env::var("DATABASE_URL").unwrap_or_default();
+
+    match service::seed_tenant(&pool, &database_url, id).await {
+        Ok(()) => (
+            StatusCode::OK,
+            Json(SuccessResponse::new(
+                serde_json::Value::Null,
+                "Seed completed successfully".to_string(),
             )),
         ).into_response(),
         Err(err) => map_tenant_error(err),

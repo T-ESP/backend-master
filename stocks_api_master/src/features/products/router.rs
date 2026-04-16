@@ -23,5 +23,6 @@ pub fn product_routes() -> Router {
         .route("/:id/kpis/scoring-classification", get(kpis_handlers::get_scoring_classification_kpis))
         .route("/:id/kpis/comparative", get(kpis_handlers::get_comparative_kpis))
         .route("/:id/kpis/price-evolution", get(kpis_handlers::get_price_evolution))
-        .route("/:id/kpis/all", get(kpis_handlers::get_all_product_kpis)) // ✅ ADD THIS LINE
+        .route("/:id/kpis/all", get(kpis_handlers::get_all_product_kpis))
+        .route("/:id/prices", post(handlers::add_product_price))
 }

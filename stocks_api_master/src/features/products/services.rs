@@ -1,5 +1,5 @@
 use sqlx::PgPool;
-use super::dto::{ProductResponse, SearchParams, ProductStatus};  // ✅ Add ProductStatus here
+use super::dto::{ProductResponse, ProductPriceResponse, SearchParams, ProductStatus};
 
 pub struct ProductService;
 
@@ -283,6 +283,31 @@ impl ProductService {
         .await?;
 
         Ok(ProductResponse::from_row(&row))
+    }
+
+    pub async fn add_product_price(
+        pool: &PgPool,
+        product_id: i32,
+        selling_price: f64,
+    ) -> Result<ProductPriceResponse, sqlx::Error> {
+        let row = sqlx::query(
+            "INSERT INTO productprices_prp (product_ref_prp, price_prp)
+             VALUES ($1, $2)
+             RETURNING id_prp, product_ref_prp, price_prp, created_at"
+        )
+        .bind(product_id)
+        .bind(selling_price)
+        .fetch_one(pool)
+        .await?;
+
+        use sqlx::Row;
+        use rust_decimal::prelude::ToPrimitive;
+        Ok(ProductPriceResponse {
+            id: row.get("id_prp"),
+            product_ref: row.get("product_ref_prp"),
+            selling_price: row.get::<rust_decimal::Decimal, _>("price_prp").to_f64().unwrap_or(0.0),
+            created_at: row.get("created_at"),
+        })
     }
 
     pub async fn update_product(
