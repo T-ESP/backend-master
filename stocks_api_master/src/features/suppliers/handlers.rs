@@ -6,7 +6,7 @@ use crate::common::{responses::{SuccessResponse, ErrorResponse}, error_codes};
 use super::{dto::{CreateSupplierRequest, UpdateSupplierRequest}, services};
 
 pub async fn get_supplier_profile(
-    Path(id): Path<i32>,
+    Path((_, id)): Path<(String, i32)>,
     Extension(pool): Extension<PgPool>,
 ) -> Response {
     if id <= 0 {
@@ -123,7 +123,7 @@ pub async fn create_supplier(
     )
 )]
 pub async fn get_supplier_by_id(
-    Path(id): Path<i32>,
+    Path((_, id)): Path<(String, i32)>,
     Extension(pool): Extension<PgPool>,
 ) -> Response {
     if id <= 0 {
@@ -224,7 +224,7 @@ pub async fn get_supplier_by_email(
     )
 )]
 pub async fn update_supplier(
-    Path(id): Path<i32>,
+    Path((_, id)): Path<(String, i32)>,
     Extension(pool): Extension<PgPool>,
     Json(payload): Json<UpdateSupplierRequest>,
 ) -> Response {
@@ -277,7 +277,7 @@ pub async fn update_supplier(
     )
 )]
 pub async fn delete_supplier(
-    Path(id): Path<i32>,
+    Path((_, id)): Path<(String, i32)>,
     Extension(pool): Extension<PgPool>,
 ) -> Response {
     if id <= 0 {

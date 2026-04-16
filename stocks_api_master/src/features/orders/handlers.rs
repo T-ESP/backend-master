@@ -302,7 +302,7 @@ pub async fn create_order(
     )
 )]
 pub async fn get_order_by_id(
-    Path(id): Path<i32>,
+    Path((_, id)): Path<(String, i32)>,
     Extension(pool): Extension<PgPool>,
 ) -> Response {
     match OrderService::get_order_by_id(&pool, id).await {
@@ -346,7 +346,7 @@ pub async fn get_order_by_id(
     )
 )]
 pub async fn update_order(
-    Path(id): Path<i32>,
+    Path((_, id)): Path<(String, i32)>,
     Extension(pool): Extension<PgPool>,
     Json(request): Json<UpdateOrderRequest>,
 ) -> Response {
@@ -390,7 +390,7 @@ pub async fn update_order(
     )
 )]
 pub async fn delete_order(
-    Path(id): Path<i32>,
+    Path((_, id)): Path<(String, i32)>,
     Extension(pool): Extension<PgPool>,
 ) -> Response {
     // Check if order exists
@@ -462,7 +462,7 @@ pub async fn delete_order(
     )
 )]
 pub async fn get_order_items(
-    Path(id): Path<i32>,
+    Path((_, id)): Path<(String, i32)>,
     Extension(pool): Extension<PgPool>,
 ) -> Response {
     // Check if order exists
@@ -522,7 +522,7 @@ pub async fn get_order_items(
     )
 )]
 pub async fn get_orders_by_user(
-    Path(user_id): Path<i32>,
+    Path((_, user_id)): Path<(String, i32)>,
     Extension(pool): Extension<PgPool>,
 ) -> Response {
     // Check if user exists

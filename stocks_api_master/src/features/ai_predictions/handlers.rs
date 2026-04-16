@@ -47,7 +47,7 @@ pub async fn get_forecasts(
     )
 )]
 pub async fn get_forecast_by_product(
-    Path(product_id): Path<i32>,
+    Path((_, product_id)): Path<(String, i32)>,
     Extension(pool): Extension<PgPool>,
 ) -> Response {
     match services::get_forecast_by_product(&pool, product_id).await {
@@ -109,7 +109,7 @@ pub async fn get_classifications(
     )
 )]
 pub async fn get_classification_by_product(
-    Path(product_id): Path<i32>,
+    Path((_, product_id)): Path<(String, i32)>,
     Extension(pool): Extension<PgPool>,
 ) -> Response {
     match services::get_classification_by_product(&pool, product_id).await {
@@ -171,7 +171,7 @@ pub async fn get_clusters(
     )
 )]
 pub async fn get_cluster_by_product(
-    Path(product_id): Path<i32>,
+    Path((_, product_id)): Path<(String, i32)>,
     Extension(pool): Extension<PgPool>,
 ) -> Response {
     match services::get_cluster_by_product(&pool, product_id).await {
@@ -233,7 +233,7 @@ pub async fn get_supplier_scores(
     )
 )]
 pub async fn get_supplier_score(
-    Path(supplier_id): Path<i32>,
+    Path((_, supplier_id)): Path<(String, i32)>,
     Extension(pool): Extension<PgPool>,
 ) -> Response {
     match services::get_supplier_score(&pool, supplier_id).await {
