@@ -29,7 +29,7 @@ use super::services::ProductService;
     )
 )]
 pub async fn get_pricing_margin_kpis(
-    Path((_, id)): Path<(String, i32)>,
+    Path((_commerce_id, id)): Path<(String, i32)>,
     Query(params): Query<KpiPeriodParams>,
     Extension(pool): Extension<PgPool>,
 ) -> Response {
@@ -91,7 +91,7 @@ pub async fn get_pricing_margin_kpis(
     )
 )]
 pub async fn get_stock_availability_kpis(
-    Path((_, id)): Path<(String, i32)>,
+    Path((_commerce_id, id)): Path<(String, i32)>,
     Query(params): Query<KpiPeriodParams>,
     Extension(pool): Extension<PgPool>,
 ) -> Response {
@@ -152,7 +152,7 @@ pub async fn get_stock_availability_kpis(
     )
 )]
 pub async fn get_sales_rotation_kpis(
-    Path((_, id)): Path<(String, i32)>,
+    Path((_commerce_id, id)): Path<(String, i32)>,
     Query(params): Query<KpiPeriodParams>,
     Extension(pool): Extension<PgPool>,
 ) -> Response {
@@ -213,7 +213,7 @@ pub async fn get_sales_rotation_kpis(
     )
 )]
 pub async fn get_profitability_kpis(
-    Path((_, id)): Path<(String, i32)>,
+    Path((_commerce_id, id)): Path<(String, i32)>,
     Query(params): Query<KpiPeriodParams>,
     Extension(pool): Extension<PgPool>,
 ) -> Response {
@@ -274,7 +274,7 @@ pub async fn get_profitability_kpis(
     )
 )]
 pub async fn get_restock_kpis(
-    Path((_, id)): Path<(String, i32)>,
+    Path((_commerce_id, id)): Path<(String, i32)>,
     Query(params): Query<KpiPeriodParams>,
     Extension(pool): Extension<PgPool>,
 ) -> Response {
@@ -335,7 +335,7 @@ pub async fn get_restock_kpis(
     )
 )]
 pub async fn get_predictions_alerts_kpis(
-    Path((_, id)): Path<(String, i32)>,
+    Path((_commerce_id, id)): Path<(String, i32)>,
     Query(params): Query<KpiPeriodParams>,
     Extension(pool): Extension<PgPool>,
 ) -> Response {
@@ -396,7 +396,7 @@ pub async fn get_predictions_alerts_kpis(
     )
 )]
 pub async fn get_scoring_classification_kpis(
-    Path((_, id)): Path<(String, i32)>,
+    Path((_commerce_id, id)): Path<(String, i32)>,
     Query(params): Query<KpiPeriodParams>,
     Extension(pool): Extension<PgPool>,
 ) -> Response {
@@ -457,7 +457,7 @@ pub async fn get_scoring_classification_kpis(
     )
 )]
 pub async fn get_comparative_kpis(
-    Path((_, id)): Path<(String, i32)>,
+    Path((_commerce_id, id)): Path<(String, i32)>,
     Query(params): Query<KpiPeriodParams>,
     Extension(pool): Extension<PgPool>,
 ) -> Response {
@@ -518,7 +518,7 @@ pub async fn get_comparative_kpis(
     )
 )]
 pub async fn get_price_evolution(
-    Path((_, id)): Path<(String, i32)>,
+    Path((_commerce_id, id)): Path<(String, i32)>,
     Query(params): Query<KpiPeriodParams>,
     Extension(pool): Extension<PgPool>,
 ) -> Response {
@@ -579,7 +579,7 @@ pub async fn get_price_evolution(
     )
 )]
 pub async fn get_all_product_kpis(
-    Path((_, id)): Path<(String, i32)>,
+    Path((_commerce_id, id)): Path<(String, i32)>,
     Query(params): Query<KpiPeriodParams>,
     Extension(pool): Extension<PgPool>,
 ) -> Response {

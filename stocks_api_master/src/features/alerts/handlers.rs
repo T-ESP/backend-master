@@ -72,7 +72,7 @@ pub async fn get_alert_summary(
     )
 )]
 pub async fn get_alert_by_id(
-    Path((_, id)): Path<(String, i32)>,
+    Path((_commerce_id, id)): Path<(String, i32)>,
     Extension(pool): Extension<PgPool>,
 ) -> Response {
     match services::get_alert_by_id(&pool, id).await {
@@ -111,7 +111,7 @@ pub async fn get_alert_by_id(
     )
 )]
 pub async fn update_alert_status(
-    Path((_, id)): Path<(String, i32)>,
+    Path((_commerce_id, id)): Path<(String, i32)>,
     Extension(pool): Extension<PgPool>,
     Json(body): Json<UpdateStatusRequest>,
 ) -> Response {
