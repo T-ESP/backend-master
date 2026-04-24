@@ -12,7 +12,7 @@
   },
   "variable": [
     { "key": "base_url",    "value": "http://localhost:8090", "type": "string" },
-    { "key": "local_base_url", "value": "http://localhost:8090", "type": "string" },
+    { "key": "local_base_url", "value": "https://api.stock-s.fr", "type": "string" },
     { "key": "remote_base_url", "value": "http://162.19.242.23:8091", "type": "string" },
     { "key": "remote_secure_base_url", "value": "https://162.19.242.23:8091", "type": "string" },
     { "key": "ai_base_url", "value": "http://localhost:8001", "type": "string" },
