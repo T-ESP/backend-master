@@ -13,6 +13,7 @@ use crate::common::error_codes;
 
 use super::dto::{CreateOrderRequest, UpdateOrderRequest, OrderQueryParams, OrderResponse, LineItemResponse, OrderStatsResponse};
 use super::services::OrderService;
+use crate::features::loyalty::services::LoyaltyService;
 
 /// GET /api/orders - Get all orders with optional filtering
 #[utoipa::path(
@@ -278,6 +279,10 @@ pub async fn create_order(
                 "Erreur lors de la validation de la commande".to_string()
             ))
         ).into_response();
+    }
+
+    if let Err(e) = LoyaltyService::award_points(&pool, request.user_id, order_id, total_amount).await {
+        eprintln!("Loyalty points error (non-critical): {}", e);
     }
 
     let created_order = OrderResponse::from_row(&order_row);

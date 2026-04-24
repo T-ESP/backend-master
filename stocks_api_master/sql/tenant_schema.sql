@@ -115,6 +115,27 @@ CREATE TABLE IF NOT EXISTS line_order_lor (
 );
 
 -- ============================================================================
+-- LOYALTY TABLES
+-- ============================================================================
+
+CREATE TABLE IF NOT EXISTS loyalty_config_lco (
+    id_lco           SERIAL PRIMARY KEY,
+    euros_per_point  NUMERIC(10,2) NOT NULL DEFAULT 2.00 CHECK (euros_per_point > 0),
+    created_at       TIMESTAMPTZ DEFAULT NOW(),
+    updated_at       TIMESTAMPTZ DEFAULT NOW()
+);
+
+CREATE TABLE IF NOT EXISTS loyalty_points_lpo (
+    id_lpo        SERIAL PRIMARY KEY,
+    user_id_lpo   INTEGER NOT NULL,
+    order_id_lpo  INTEGER NOT NULL,
+    points_lpo    INTEGER NOT NULL CHECK (points_lpo > 0),
+    created_at    TIMESTAMPTZ DEFAULT NOW(),
+    FOREIGN KEY (user_id_lpo)  REFERENCES users_usr(id_usr) ON DELETE CASCADE,
+    FOREIGN KEY (order_id_lpo) REFERENCES order_ord(id_ord) ON DELETE CASCADE
+);
+
+-- ============================================================================
 -- RESTOCK TABLES
 -- ============================================================================
 
@@ -304,6 +325,9 @@ CREATE INDEX IF NOT EXISTS idx_notifications_model_type ON notifications(model_t
 CREATE INDEX IF NOT EXISTS idx_notifications_product ON notifications(product_id);
 CREATE INDEX IF NOT EXISTS idx_notifications_created_at ON notifications(created_at DESC);
 CREATE INDEX IF NOT EXISTS idx_notifications_status_severity ON notifications(status, severity);
+
+CREATE INDEX IF NOT EXISTS idx_loyalty_points_user  ON loyalty_points_lpo(user_id_lpo);
+CREATE INDEX IF NOT EXISTS idx_loyalty_points_order ON loyalty_points_lpo(order_id_lpo);
 
 -- ============================================================================
 -- TRIGGER FUNCTIONS
