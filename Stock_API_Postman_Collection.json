@@ -1,42 +1,286 @@
 {
   "info": {
-    "name": "Stock Management API - Products",
-    "description": "Complete Postman collection for testing Product endpoints in the Stock Management API",
+    "name": "Stock Management API - Complete",
+    "description": "Full collection for all endpoints: Stocks API (port 8090) + AI Service (port 8001). Run 'Auth / Login' first — it auto-saves the JWT token for all protected requests.",
     "schema": "https://schema.getpostman.com/json/collection/v2.1.0/collection.json"
   },
+  "auth": {
+    "type": "bearer",
+    "bearer": [
+      { "key": "token", "value": "{{token}}", "type": "string" }
+    ]
+  },
   "variable": [
-    {
-      "key": "base_url",
-      "value": "http://localhost:8090",
-      "type": "string"
-    },
-    {
-      "key": "product_id",
-      "value": "1",
-      "type": "string"
-    },
-    {
-      "key": "product_reference",
-      "value": "REF0001",
-      "type": "string"
-    }
+    { "key": "base_url",    "value": "http://localhost:8090", "type": "string" },
+    { "key": "local_base_url", "value": "http://localhost:8090", "type": "string" },
+    { "key": "remote_base_url", "value": "http://162.19.242.23:8091", "type": "string" },
+    { "key": "remote_secure_base_url", "value": "https://162.19.242.23:8091", "type": "string" },
+    { "key": "ai_base_url", "value": "http://localhost:8001", "type": "string" },
+    { "key": "token",       "value": "",  "type": "string" },
+    { "key": "product_id",  "value": "1", "type": "string" },
+    { "key": "product_reference", "value": "REF0001", "type": "string" },
+    { "key": "order_id",    "value": "1", "type": "string" },
+    { "key": "user_id",     "value": "1", "type": "string" },
+    { "key": "supplier_id", "value": "1", "type": "string" },
+    { "key": "restock_id",  "value": "1", "type": "string" },
+    { "key": "alert_id",    "value": "1", "type": "string" }
   ],
   "item": [
+
     {
-      "name": "Products",
+      "name": "Auth",
+      "description": "Login and registration. Login auto-saves the JWT to {{token}}.",
+      "event": [
+        {
+          "listen": "test",
+          "script": {
+            "exec": [
+              "if (pm.response.code === 200) {",
+              "    var json = pm.response.json();",
+              "    if (json.data && json.data.token) {",
+              "        pm.collectionVariables.set('token', json.data.token);",
+              "        console.log('Token saved.');",
+              "    }",
+              "}"
+            ],
+            "type": "text/javascript"
+          }
+        }
+      ],
       "item": [
         {
-          "name": "Create Product",
+          "name": "Login (saves token)",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "if (pm.response.code === 200) {",
+                  "    var json = pm.response.json();",
+                  "    if (json.data && json.data.token) {",
+                  "        pm.collectionVariables.set('token', json.data.token);",
+                  "        console.log('Token saved.');",
+                  "    }",
+                  "}"
+                ],
+                "type": "text/javascript"
+              }
+            }
+          ],
+          "request": {
+            "auth": { "type": "noauth" },
+            "method": "POST",
+            "header": [{ "key": "Content-Type", "value": "application/json" }],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"email\": \"admin@example.com\",\n  \"password\": \"adminpass\"\n}"
+            },
+            "url": {
+              "raw": "{{base_url}}/auth/login",
+              "host": ["{{base_url}}"],
+              "path": ["auth", "login"]
+            }
+          },
+          "response": []
+        },
+        {
+          "name": "Register",
+          "request": {
+            "auth": { "type": "noauth" },
+            "method": "POST",
+            "header": [{ "key": "Content-Type", "value": "application/json" }],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"email\": \"newuser@example.com\",\n  \"password\": \"securepass123\",\n  \"firstname\": \"John\",\n  \"lastname\": \"Doe\"\n}"
+            },
+            "url": {
+              "raw": "{{base_url}}/auth/register",
+              "host": ["{{base_url}}"],
+              "path": ["auth", "register"]
+            }
+          },
+          "response": []
+        },
+        {
+          "name": "Remote Login - contact@stocks.fr",
+          "request": {
+            "auth": { "type": "noauth" },
+            "method": "POST",
+            "header": [{ "key": "Content-Type", "value": "application/json" }],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"email\": \"contact@stocks.fr\",\n  \"password\": \"jYQTEh0RTcJQ\"\n}"
+            },
+            "url": {
+              "raw": "{{remote_base_url}}/auth/login",
+              "host": ["{{remote_base_url}}"],
+              "path": ["auth", "login"]
+            }
+          },
+          "response": []
+        },
+        {
+          "name": "Local Login - contact@stocks.fr",
+          "request": {
+            "auth": { "type": "noauth" },
+            "method": "POST",
+            "header": [{ "key": "Content-Type", "value": "application/json" }],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"email\": \"contact@stocks.fr\",\n  \"password\": \"jYQTEh0RTcJQ\"\n}"
+            },
+            "url": {
+              "raw": "{{local_base_url}}/auth/login",
+              "host": ["{{local_base_url}}"],
+              "path": ["auth", "login"]
+            }
+          },
+          "response": []
+        },
+        {
+          "name": "Remote Register - admin@stock-s.fr",
+          "request": {
+            "auth": { "type": "noauth" },
+            "method": "POST",
+            "header": [{ "key": "Content-Type", "value": "application/json" }],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"email\": \"admin@stock-s.fr\",\n  \"password\": \"temporaire\",\n  \"firstname\": \"Admin\",\n  \"lastname\": \"User\"\n}"
+            },
+            "url": {
+              "raw": "{{remote_base_url}}/auth/register",
+              "host": ["{{remote_base_url}}"],
+              "path": ["auth", "register"]
+            }
+          },
+          "response": []
+        },
+        {
+          "name": "Local Register - admin@stock-s.fr",
+          "request": {
+            "auth": { "type": "noauth" },
+            "method": "POST",
+            "header": [{ "key": "Content-Type", "value": "application/json" }],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"email\": \"admin@stock-s.fr\",\n  \"password\": \"temporaire\",\n  \"firstname\": \"Admin\",\n  \"lastname\": \"User\"\n}"
+            },
+            "url": {
+              "raw": "{{local_base_url}}/auth/register",
+              "host": ["{{local_base_url}}"],
+              "path": ["auth", "register"]
+            }
+          },
+          "response": []
+        },
+        {
+          "name": "Remote HTTPS Login - admin@stock-s.fr",
+          "request": {
+            "auth": { "type": "noauth" },
+            "method": "POST",
+            "header": [{ "key": "Content-Type", "value": "application/json" }],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"email\": \"admin@stock-s.fr\",\n  \"password\": \"temporaire\"\n}"
+            },
+            "url": {
+              "raw": "{{remote_secure_base_url}}/auth/login",
+              "host": ["{{remote_secure_base_url}}"],
+              "path": ["auth", "login"]
+            }
+          },
+          "response": []
+        },
+        {
+          "name": "Local Login - admin@stock-s.fr",
+          "request": {
+            "auth": { "type": "noauth" },
+            "method": "POST",
+            "header": [{ "key": "Content-Type", "value": "application/json" }],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"email\": \"admin@stock-s.fr\",\n  \"password\": \"temporaire\"\n}"
+            },
+            "url": {
+              "raw": "{{local_base_url}}/auth/login",
+              "host": ["{{local_base_url}}"],
+              "path": ["auth", "login"]
+            }
+          },
+          "response": []
+        }
+      ]
+    },
+
+    {
+      "name": "Admin",
+      "description": "Admin endpoints. Requires JWT unless the API allows otherwise.",
+      "item": [
+        {
+          "name": "Remote Create Tenant - tayna store",
+          "request": {
+            "method": "POST",
+            "header": [{ "key": "Content-Type", "value": "application/json" }],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"name\": \"tayna store\",\n  \"slug\": \"taynas\",\n  \"email\": \"contact@tayna.fr\",\n  \"phone\": \"0612345678\",\n  \"address\": \"14 rue de la Paix, 13005 Paris\",\n  \"siret\": \"12345678301234\"\n}"
+            },
+            "url": {
+              "raw": "{{remote_base_url}}/admin/tenants",
+              "host": ["{{remote_base_url}}"],
+              "path": ["admin", "tenants"]
+            }
+          },
+          "response": []
+        },
+        {
+          "name": "Local Create Tenant - tayna store",
+          "request": {
+            "method": "POST",
+            "header": [{ "key": "Content-Type", "value": "application/json" }],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"name\": \"tayna store\",\n  \"slug\": \"taynas\",\n  \"email\": \"contact@tayna.fr\",\n  \"phone\": \"0612345678\",\n  \"address\": \"14 rue de la Paix, 13005 Paris\",\n  \"siret\": \"12345678301234\"\n}"
+            },
+            "url": {
+              "raw": "{{local_base_url}}/admin/tenants",
+              "host": ["{{local_base_url}}"],
+              "path": ["admin", "tenants"]
+            }
+          },
+          "response": []
+        }
+      ]
+    },
+
+    {
+      "name": "Users",
+      "description": "User management. All endpoints require JWT.",
+      "item": [
+        {
+          "name": "Get All Users",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{base_url}}/users",
+              "host": ["{{base_url}}"],
+              "path": ["users"]
+            }
+          },
+          "response": []
+        },
+        {
+          "name": "Create User",
           "event": [
             {
               "listen": "test",
               "script": {
                 "exec": [
                   "if (pm.response.code === 201) {",
-                  "    var jsonData = pm.response.json();",
-                  "    if (jsonData.data && jsonData.data.id) {",
-                  "        pm.collectionVariables.set('product_id', jsonData.data.id);",
-                  "        pm.collectionVariables.set('product_reference', jsonData.data.reference);",
+                  "    var json = pm.response.json();",
+                  "    if (json.data && json.data.id) {",
+                  "        pm.collectionVariables.set('user_id', json.data.id);",
                   "    }",
                   "}"
                 ],
@@ -46,48 +290,56 @@
           ],
           "request": {
             "method": "POST",
-            "header": [
-              {
-                "key": "Content-Type",
-                "value": "application/json"
-              }
-            ],
+            "header": [{ "key": "Content-Type", "value": "application/json" }],
             "body": {
               "mode": "raw",
-              "raw": "{\n  \"name\": \"Test Product API\",\n  \"category\": \"Électronique\",\n  \"reference\": \"TEST-API-001\",\n  \"supplier_id\": 1,\n  \"stock_quantity\": 100,\n  \"buying_price\": 15.99,\n  \"status\": \"InStock\"\n}"
+              "raw": "{\n  \"email\": \"testuser@example.com\",\n  \"firstname\": \"Alice\",\n  \"lastname\": \"Martin\",\n  \"password\": \"password123\"\n}"
             },
             "url": {
-              "raw": "{{base_url}}/products",
+              "raw": "{{base_url}}/users",
               "host": ["{{base_url}}"],
-              "path": ["products"]
-            },
-            "description": "Create a new product. Status can be: InStock, OutOfStock, Discontinued, or Ordered"
+              "path": ["users"]
+            }
           },
           "response": []
         },
         {
-          "name": "Create Product (Minimal)",
+          "name": "Update User",
           "request": {
-            "method": "POST",
-            "header": [
-              {
-                "key": "Content-Type",
-                "value": "application/json"
-              }
-            ],
+            "method": "PUT",
+            "header": [{ "key": "Content-Type", "value": "application/json" }],
             "body": {
               "mode": "raw",
-              "raw": "{\n  \"name\": \"Minimal Product\",\n  \"category\": \"Alimentaire\",\n  \"reference\": \"MIN-001\",\n  \"supplier_id\": 2,\n  \"stock_quantity\": 0,\n  \"buying_price\": 5.50\n}"
+              "raw": "{\n  \"firstname\": \"Alice Updated\",\n  \"phone\": \"+33612345678\"\n}"
             },
             "url": {
-              "raw": "{{base_url}}/products",
+              "raw": "{{base_url}}/users/{{user_id}}",
               "host": ["{{base_url}}"],
-              "path": ["products"]
-            },
-            "description": "Create product without specifying status (defaults to InStock)"
+              "path": ["users", "{{user_id}}"]
+            }
           },
           "response": []
         },
+        {
+          "name": "Delete User",
+          "request": {
+            "method": "DELETE",
+            "header": [],
+            "url": {
+              "raw": "{{base_url}}/users/{{user_id}}",
+              "host": ["{{base_url}}"],
+              "path": ["users", "{{user_id}}"]
+            }
+          },
+          "response": []
+        }
+      ]
+    },
+
+    {
+      "name": "Products",
+      "description": "Full product CRUD. Creates save {{product_id}} and {{product_reference}}.",
+      "item": [
         {
           "name": "Get All Products",
           "request": {
@@ -98,7 +350,7 @@
               "host": ["{{base_url}}"],
               "path": ["products"]
             },
-            "description": "Get all products (default limit: 50, offset: 0)"
+            "description": "Default: limit=50, offset=0"
           },
           "response": []
         },
@@ -112,57 +364,33 @@
               "host": ["{{base_url}}"],
               "path": ["products"],
               "query": [
-                {
-                  "key": "q",
-                  "value": "Produit",
-                  "description": "Search by name"
-                },
-                {
-                  "key": "category",
-                  "value": "Électronique",
-                  "description": "Filter by category"
-                },
-                {
-                  "key": "supplier_id",
-                  "value": "1",
-                  "disabled": true,
-                  "description": "Filter by supplier ID"
-                },
-                {
-                  "key": "min_price",
-                  "value": "5",
-                  "disabled": true,
-                  "description": "Minimum buying price"
-                },
-                {
-                  "key": "max_price",
-                  "value": "20",
-                  "disabled": true,
-                  "description": "Maximum buying price"
-                },
-                {
-                  "key": "min_stock",
-                  "value": "10",
-                  "description": "Minimum stock quantity"
-                },
-                {
-                  "key": "max_stock",
-                  "value": "150",
-                  "description": "Maximum stock quantity"
-                },
-                {
-                  "key": "limit",
-                  "value": "20",
-                  "description": "Results per page"
-                },
-                {
-                  "key": "offset",
-                  "value": "0",
-                  "description": "Pagination offset"
-                }
+                { "key": "q",          "value": "Produit",       "description": "Search by name" },
+                { "key": "category",   "value": "Électronique",  "description": "Filter by category" },
+                { "key": "supplier_id","value": "1",             "disabled": true },
+                { "key": "min_price",  "value": "5",             "disabled": true },
+                { "key": "max_price",  "value": "20",            "disabled": true },
+                { "key": "min_stock",  "value": "10" },
+                { "key": "max_stock",  "value": "150" },
+                { "key": "status",     "value": "in_stock",      "disabled": true },
+                { "key": "limit",      "value": "20" },
+                { "key": "offset",     "value": "0" }
               ]
+            }
+          },
+          "response": []
+        },
+        {
+          "name": "Get Products Light (search)",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{base_url}}/products/light?q=Pro",
+              "host": ["{{base_url}}"],
+              "path": ["products", "light"],
+              "query": [{ "key": "q", "value": "Pro", "description": "Name search" }]
             },
-            "description": "Search and filter products by various criteria"
+            "description": "Lightweight list for autocomplete (id, name, reference, stock)"
           },
           "response": []
         },
@@ -175,8 +403,7 @@
               "raw": "{{base_url}}/products/{{product_id}}",
               "host": ["{{base_url}}"],
               "path": ["products", "{{product_id}}"]
-            },
-            "description": "Get a single product by ID"
+            }
           },
           "response": []
         },
@@ -189,100 +416,73 @@
               "raw": "{{base_url}}/products/reference/{{product_reference}}",
               "host": ["{{base_url}}"],
               "path": ["products", "reference", "{{product_reference}}"]
-            },
-            "description": "Get a single product by its reference code"
+            }
           },
           "response": []
         },
         {
-          "name": "Update Product (Full)",
-          "request": {
-            "method": "PUT",
-            "header": [
-              {
-                "key": "Content-Type",
-                "value": "application/json"
+          "name": "Create Product",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "if (pm.response.code === 201) {",
+                  "    var json = pm.response.json();",
+                  "    if (json.data && json.data.id) {",
+                  "        pm.collectionVariables.set('product_id', json.data.id);",
+                  "        pm.collectionVariables.set('product_reference', json.data.reference);",
+                  "    }",
+                  "}"
+                ],
+                "type": "text/javascript"
               }
-            ],
+            }
+          ],
+          "request": {
+            "method": "POST",
+            "header": [{ "key": "Content-Type", "value": "application/json" }],
             "body": {
               "mode": "raw",
-              "raw": "{\n  \"name\": \"Updated Product Name\",\n  \"category\": \"Maison\",\n  \"reference\": \"TEST-API-001-UPDATED\",\n  \"supplier_id\": 3,\n  \"stock_quantity\": 75,\n  \"buying_price\": 18.50,\n  \"status\": \"InStock\"\n}"
+              "raw": "{\n  \"name\": \"Test Product API\",\n  \"category\": \"Électronique\",\n  \"reference\": \"TEST-API-001\",\n  \"supplier_id\": 1,\n  \"stock_quantity\": 100,\n  \"buying_price\": 15.99,\n  \"status\": \"in_stock\"\n}"
+            },
+            "url": {
+              "raw": "{{base_url}}/products",
+              "host": ["{{base_url}}"],
+              "path": ["products"]
+            },
+            "description": "Status: in_stock | out_of_stock | discontinued | ordered"
+          },
+          "response": []
+        },
+        {
+          "name": "Update Product",
+          "request": {
+            "method": "PUT",
+            "header": [{ "key": "Content-Type", "value": "application/json" }],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"name\": \"Updated Product Name\",\n  \"stock_quantity\": 75,\n  \"buying_price\": 18.50\n}"
             },
             "url": {
               "raw": "{{base_url}}/products/{{product_id}}",
               "host": ["{{base_url}}"],
               "path": ["products", "{{product_id}}"]
-            },
-            "description": "Update all fields of a product"
+            }
           },
           "response": []
         },
         {
-          "name": "Update Product (Partial - Stock Only)",
+          "name": "Update Product Status - Discontinued",
           "request": {
             "method": "PUT",
-            "header": [
-              {
-                "key": "Content-Type",
-                "value": "application/json"
-              }
-            ],
-            "body": {
-              "mode": "raw",
-              "raw": "{\n  \"stock_quantity\": 50\n}"
-            },
+            "header": [{ "key": "Content-Type", "value": "application/json" }],
+            "body": { "mode": "raw", "raw": "{\n  \"status\": \"discontinued\"\n}" },
             "url": {
               "raw": "{{base_url}}/products/{{product_id}}",
               "host": ["{{base_url}}"],
               "path": ["products", "{{product_id}}"]
-            },
-            "description": "Update only stock quantity (partial update)"
-          },
-          "response": []
-        },
-        {
-          "name": "Update Product (Set to Discontinued)",
-          "request": {
-            "method": "PUT",
-            "header": [
-              {
-                "key": "Content-Type",
-                "value": "application/json"
-              }
-            ],
-            "body": {
-              "mode": "raw",
-              "raw": "{\n  \"status\": \"Discontinued\"\n}"
-            },
-            "url": {
-              "raw": "{{base_url}}/products/{{product_id}}",
-              "host": ["{{base_url}}"],
-              "path": ["products", "{{product_id}}"]
-            },
-            "description": "Mark product as discontinued"
-          },
-          "response": []
-        },
-        {
-          "name": "Update Product (Set to Ordered)",
-          "request": {
-            "method": "PUT",
-            "header": [
-              {
-                "key": "Content-Type",
-                "value": "application/json"
-              }
-            ],
-            "body": {
-              "mode": "raw",
-              "raw": "{\n  \"status\": \"Ordered\"\n}"
-            },
-            "url": {
-              "raw": "{{base_url}}/products/{{product_id}}",
-              "host": ["{{base_url}}"],
-              "path": ["products", "{{product_id}}"]
-            },
-            "description": "Mark product as being restocked (ordered)"
+            }
           },
           "response": []
         },
@@ -295,173 +495,975 @@
               "raw": "{{base_url}}/products/{{product_id}}",
               "host": ["{{base_url}}"],
               "path": ["products", "{{product_id}}"]
-            },
-            "description": "Delete a product by ID"
+            }
           },
           "response": []
         }
-      ],
-      "description": "CRUD operations for products"
+      ]
     },
+
     {
       "name": "Product KPIs",
+      "description": "All per-product analytics endpoints.",
       "item": [
         {
-          "name": "Get Pricing & Margin KPI",
+          "name": "Pricing & Margin",
           "request": {
-            "method": "GET",
-            "header": [],
-            "url": {
-              "raw": "{{base_url}}/products/{{product_id}}/kpis/pricing-margin",
-              "host": ["{{base_url}}"],
-              "path": ["products", "{{product_id}}", "kpis", "pricing-margin"]
-            },
-            "description": "Get price & margin analytics for a product"
-          },
-          "response": []
+            "method": "GET", "header": [],
+            "url": { "raw": "{{base_url}}/products/{{product_id}}/kpis/pricing-margin", "host": ["{{base_url}}"], "path": ["products","{{product_id}}","kpis","pricing-margin"] }
+          }, "response": []
         },
         {
-          "name": "Get Stock Availability KPI",
+          "name": "Stock Availability",
           "request": {
-            "method": "GET",
-            "header": [],
-            "url": {
-              "raw": "{{base_url}}/products/{{product_id}}/kpis/stock-availability",
-              "host": ["{{base_url}}"],
-              "path": ["products", "{{product_id}}", "kpis", "stock-availability"]
-            },
-            "description": "Get stock monitoring and availability metrics"
-          },
-          "response": []
+            "method": "GET", "header": [],
+            "url": { "raw": "{{base_url}}/products/{{product_id}}/kpis/stock-availability", "host": ["{{base_url}}"], "path": ["products","{{product_id}}","kpis","stock-availability"] }
+          }, "response": []
         },
         {
-          "name": "Get Sales Rotation KPI",
+          "name": "Sales Rotation",
           "request": {
-            "method": "GET",
-            "header": [],
-            "url": {
-              "raw": "{{base_url}}/products/{{product_id}}/kpis/sales-rotation",
-              "host": ["{{base_url}}"],
-              "path": ["products", "{{product_id}}", "kpis", "sales-rotation"]
-            },
-            "description": "Get sales performance and rotation metrics"
-          },
-          "response": []
+            "method": "GET", "header": [],
+            "url": { "raw": "{{base_url}}/products/{{product_id}}/kpis/sales-rotation", "host": ["{{base_url}}"], "path": ["products","{{product_id}}","kpis","sales-rotation"] }
+          }, "response": []
         },
         {
-          "name": "Get Profitability KPI",
+          "name": "Profitability",
           "request": {
-            "method": "GET",
-            "header": [],
-            "url": {
-              "raw": "{{base_url}}/products/{{product_id}}/kpis/profitability",
-              "host": ["{{base_url}}"],
-              "path": ["products", "{{product_id}}", "kpis", "profitability"]
-            },
-            "description": "Get financial performance and ROI"
-          },
-          "response": []
+            "method": "GET", "header": [],
+            "url": { "raw": "{{base_url}}/products/{{product_id}}/kpis/profitability", "host": ["{{base_url}}"], "path": ["products","{{product_id}}","kpis","profitability"] }
+          }, "response": []
         },
         {
-          "name": "Get Restock KPI",
+          "name": "Restock History",
           "request": {
-            "method": "GET",
-            "header": [],
-            "url": {
-              "raw": "{{base_url}}/products/{{product_id}}/kpis/restock",
-              "host": ["{{base_url}}"],
-              "path": ["products", "{{product_id}}", "kpis", "restock"]
-            },
-            "description": "Get restock analytics and history"
-          },
-          "response": []
+            "method": "GET", "header": [],
+            "url": { "raw": "{{base_url}}/products/{{product_id}}/kpis/restock", "host": ["{{base_url}}"], "path": ["products","{{product_id}}","kpis","restock"] }
+          }, "response": []
         },
         {
-          "name": "Get Predictions & Alerts KPI",
+          "name": "Predictions & Alerts",
           "request": {
-            "method": "GET",
-            "header": [],
-            "url": {
-              "raw": "{{base_url}}/products/{{product_id}}/kpis/predictions-alerts",
-              "host": ["{{base_url}}"],
-              "path": ["products", "{{product_id}}", "kpis", "predictions-alerts"]
-            },
-            "description": "Get predictive analytics (stockout date, reorder point, alerts)"
-          },
-          "response": []
+            "method": "GET", "header": [],
+            "url": { "raw": "{{base_url}}/products/{{product_id}}/kpis/predictions-alerts", "host": ["{{base_url}}"], "path": ["products","{{product_id}}","kpis","predictions-alerts"] }
+          }, "response": []
         },
         {
-          "name": "Get Scoring & Classification KPI",
+          "name": "Scoring & Classification",
           "request": {
-            "method": "GET",
-            "header": [],
-            "url": {
-              "raw": "{{base_url}}/products/{{product_id}}/kpis/scoring-classification",
-              "host": ["{{base_url}}"],
-              "path": ["products", "{{product_id}}", "kpis", "scoring-classification"]
-            },
-            "description": "Get strategic scoring and ABC classification"
-          },
-          "response": []
+            "method": "GET", "header": [],
+            "url": { "raw": "{{base_url}}/products/{{product_id}}/kpis/scoring-classification", "host": ["{{base_url}}"], "path": ["products","{{product_id}}","kpis","scoring-classification"] }
+          }, "response": []
         },
         {
-          "name": "Get Comparative KPI",
+          "name": "Comparative",
           "request": {
-            "method": "GET",
-            "header": [],
-            "url": {
-              "raw": "{{base_url}}/products/{{product_id}}/kpis/comparative",
-              "host": ["{{base_url}}"],
-              "path": ["products", "{{product_id}}", "kpis", "comparative"]
-            },
-            "description": "Get performance vs category/supplier"
-          },
-          "response": []
+            "method": "GET", "header": [],
+            "url": { "raw": "{{base_url}}/products/{{product_id}}/kpis/comparative", "host": ["{{base_url}}"], "path": ["products","{{product_id}}","kpis","comparative"] }
+          }, "response": []
         },
         {
-          "name": "Get Price Evolution KPI",
+          "name": "Price Evolution",
           "request": {
-            "method": "GET",
-            "header": [],
-            "url": {
-              "raw": "{{base_url}}/products/{{product_id}}/kpis/price-evolution",
-              "host": ["{{base_url}}"],
-              "path": ["products", "{{product_id}}", "kpis", "price-evolution"]
-            },
-            "description": "Get historical price data (buying, selling, margin)"
-          },
-          "response": []
+            "method": "GET", "header": [],
+            "url": { "raw": "{{base_url}}/products/{{product_id}}/kpis/price-evolution", "host": ["{{base_url}}"], "path": ["products","{{product_id}}","kpis","price-evolution"] }
+          }, "response": []
+        },
+        {
+          "name": "All KPIs (combined)",
+          "request": {
+            "method": "GET", "header": [],
+            "url": { "raw": "{{base_url}}/products/{{product_id}}/kpis/all", "host": ["{{base_url}}"], "path": ["products","{{product_id}}","kpis","all"] },
+            "description": "Returns all KPI groups in one request"
+          }, "response": []
         }
-      ],
-      "description": "Product analytics and KPI endpoints"
+      ]
     },
+
     {
-      "name": "Health Check",
-      "request": {
-        "method": "GET",
-        "header": [],
-        "url": {
-          "raw": "{{base_url}}/health",
-          "host": ["{{base_url}}"],
-          "path": ["health"]
+      "name": "Orders",
+      "description": "Order management. Creates save {{order_id}}.",
+      "item": [
+        {
+          "name": "Get All Orders",
+          "request": {
+            "method": "GET", "header": [],
+            "url": {
+              "raw": "{{base_url}}/orders?limit=20&offset=0",
+              "host": ["{{base_url}}"],
+              "path": ["orders"],
+              "query": [
+                { "key": "status", "value": "pending", "disabled": true },
+                { "key": "limit",  "value": "20" },
+                { "key": "offset", "value": "0" }
+              ]
+            }
+          }, "response": []
         },
-        "description": "API health check"
-      },
-      "response": []
+        {
+          "name": "Get Order Stats",
+          "request": {
+            "method": "GET", "header": [],
+            "url": { "raw": "{{base_url}}/orders/stats", "host": ["{{base_url}}"], "path": ["orders","stats"] }
+          }, "response": []
+        },
+        {
+          "name": "Get Order by ID",
+          "request": {
+            "method": "GET", "header": [],
+            "url": { "raw": "{{base_url}}/orders/{{order_id}}", "host": ["{{base_url}}"], "path": ["orders","{{order_id}}"] }
+          }, "response": []
+        },
+        {
+          "name": "Get Order Items",
+          "request": {
+            "method": "GET", "header": [],
+            "url": { "raw": "{{base_url}}/orders/{{order_id}}/items", "host": ["{{base_url}}"], "path": ["orders","{{order_id}}","items"] }
+          }, "response": []
+        },
+        {
+          "name": "Get Orders by User",
+          "request": {
+            "method": "GET", "header": [],
+            "url": { "raw": "{{base_url}}/orders/user/{{user_id}}", "host": ["{{base_url}}"], "path": ["orders","user","{{user_id}}"] }
+          }, "response": []
+        },
+        {
+          "name": "Create Order",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "if (pm.response.code === 201) {",
+                  "    var json = pm.response.json();",
+                  "    if (json.data && json.data.id) {",
+                  "        pm.collectionVariables.set('order_id', json.data.id);",
+                  "    }",
+                  "}"
+                ],
+                "type": "text/javascript"
+              }
+            }
+          ],
+          "request": {
+            "method": "POST",
+            "header": [{ "key": "Content-Type", "value": "application/json" }],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"user_id\": 1,\n  \"status\": \"pending\",\n  \"line_items\": [\n    { \"product_id\": 1, \"quantity\": 2 },\n    { \"product_id\": 2, \"quantity\": 1 }\n  ]\n}"
+            },
+            "url": { "raw": "{{base_url}}/orders", "host": ["{{base_url}}"], "path": ["orders"] }
+          }, "response": []
+        },
+        {
+          "name": "Update Order Status",
+          "request": {
+            "method": "PUT",
+            "header": [{ "key": "Content-Type", "value": "application/json" }],
+            "body": { "mode": "raw", "raw": "{\n  \"status\": \"processing\"\n}" },
+            "url": { "raw": "{{base_url}}/orders/{{order_id}}", "host": ["{{base_url}}"], "path": ["orders","{{order_id}}"] },
+            "description": "Status: pending | processing | shipped | delivered | cancelled"
+          }, "response": []
+        },
+        {
+          "name": "Delete Order",
+          "request": {
+            "method": "DELETE", "header": [],
+            "url": { "raw": "{{base_url}}/orders/{{order_id}}", "host": ["{{base_url}}"], "path": ["orders","{{order_id}}"] }
+          }, "response": []
+        }
+      ]
     },
+
     {
-      "name": "Swagger UI",
-      "request": {
-        "method": "GET",
-        "header": [],
-        "url": {
-          "raw": "{{base_url}}/swagger-ui",
-          "host": ["{{base_url}}"],
-          "path": ["swagger-ui"]
+      "name": "Suppliers",
+      "description": "Supplier management. Creates save {{supplier_id}}.",
+      "item": [
+        {
+          "name": "Get All Suppliers",
+          "request": {
+            "method": "GET", "header": [],
+            "url": { "raw": "{{base_url}}/suppliers", "host": ["{{base_url}}"], "path": ["suppliers"] }
+          }, "response": []
         },
-        "description": "Open Swagger UI in browser"
-      },
-      "response": []
+        {
+          "name": "Get Supplier by ID",
+          "request": {
+            "method": "GET", "header": [],
+            "url": { "raw": "{{base_url}}/suppliers/{{supplier_id}}", "host": ["{{base_url}}"], "path": ["suppliers","{{supplier_id}}"] }
+          }, "response": []
+        },
+        {
+          "name": "Search Supplier by Email",
+          "request": {
+            "method": "GET", "header": [],
+            "url": {
+              "raw": "{{base_url}}/suppliers/search?email=supplier@example.com",
+              "host": ["{{base_url}}"],
+              "path": ["suppliers","search"],
+              "query": [{ "key": "email", "value": "supplier@example.com" }]
+            }
+          }, "response": []
+        },
+        {
+          "name": "Create Supplier",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "if (pm.response.code === 201) {",
+                  "    var json = pm.response.json();",
+                  "    if (json.data && json.data.id) {",
+                  "        pm.collectionVariables.set('supplier_id', json.data.id);",
+                  "    }",
+                  "}"
+                ],
+                "type": "text/javascript"
+              }
+            }
+          ],
+          "request": {
+            "method": "POST",
+            "header": [{ "key": "Content-Type", "value": "application/json" }],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"name_sup\": \"Test Supplier SARL\",\n  \"email_sup\": \"contact@testsupplier.com\",\n  \"phone_sup\": \"+33612345678\",\n  \"address_sup\": \"12 rue de la Paix, 75001 Paris\"\n}"
+            },
+            "url": { "raw": "{{base_url}}/suppliers", "host": ["{{base_url}}"], "path": ["suppliers"] }
+          }, "response": []
+        },
+        {
+          "name": "Update Supplier",
+          "request": {
+            "method": "PUT",
+            "header": [{ "key": "Content-Type", "value": "application/json" }],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"phone_sup\": \"+33699887766\",\n  \"address_sup\": \"15 avenue Victor Hugo, 69001 Lyon\"\n}"
+            },
+            "url": { "raw": "{{base_url}}/suppliers/{{supplier_id}}", "host": ["{{base_url}}"], "path": ["suppliers","{{supplier_id}}"] }
+          }, "response": []
+        },
+        {
+          "name": "Delete Supplier",
+          "request": {
+            "method": "DELETE", "header": [],
+            "url": { "raw": "{{base_url}}/suppliers/{{supplier_id}}", "host": ["{{base_url}}"], "path": ["suppliers","{{supplier_id}}"] }
+          }, "response": []
+        }
+      ]
+    },
+
+    {
+      "name": "Restocks",
+      "description": "Restock management. Creates save {{restock_id}}. Setting status to 'received' updates product stock.",
+      "item": [
+        {
+          "name": "Get All Restocks",
+          "request": {
+            "method": "GET", "header": [],
+            "url": {
+              "raw": "{{base_url}}/restocks?limit=20&offset=0",
+              "host": ["{{base_url}}"],
+              "path": ["restocks"],
+              "query": [
+                { "key": "status", "value": "pending", "disabled": true },
+                { "key": "limit",  "value": "20" },
+                { "key": "offset", "value": "0" }
+              ]
+            }
+          }, "response": []
+        },
+        {
+          "name": "Get Restocks with Supplier",
+          "request": {
+            "method": "GET", "header": [],
+            "url": { "raw": "{{base_url}}/restocks/with-supplier", "host": ["{{base_url}}"], "path": ["restocks","with-supplier"] }
+          }, "response": []
+        },
+        {
+          "name": "Get Restock Stats (Global)",
+          "request": {
+            "method": "GET", "header": [],
+            "url": { "raw": "{{base_url}}/restocks/stats/global", "host": ["{{base_url}}"], "path": ["restocks","stats","global"] }
+          }, "response": []
+        },
+        {
+          "name": "Get Restock Stats by Product",
+          "request": {
+            "method": "GET", "header": [],
+            "url": { "raw": "{{base_url}}/restocks/stats/product/{{product_id}}", "host": ["{{base_url}}"], "path": ["restocks","stats","product","{{product_id}}"] }
+          }, "response": []
+        },
+        {
+          "name": "Get Restocks by Product",
+          "request": {
+            "method": "GET", "header": [],
+            "url": { "raw": "{{base_url}}/restocks/product/{{product_id}}", "host": ["{{base_url}}"], "path": ["restocks","product","{{product_id}}"] }
+          }, "response": []
+        },
+        {
+          "name": "Get Restock by ID",
+          "request": {
+            "method": "GET", "header": [],
+            "url": { "raw": "{{base_url}}/restocks/{{restock_id}}", "host": ["{{base_url}}"], "path": ["restocks","{{restock_id}}"] }
+          }, "response": []
+        },
+        {
+          "name": "Create Restock",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "if (pm.response.code === 201) {",
+                  "    var json = pm.response.json();",
+                  "    if (json.data && json.data.id) {",
+                  "        pm.collectionVariables.set('restock_id', json.data.id);",
+                  "    }",
+                  "}"
+                ],
+                "type": "text/javascript"
+              }
+            }
+          ],
+          "request": {
+            "method": "POST",
+            "header": [{ "key": "Content-Type", "value": "application/json" }],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"supplier_id\": 1,\n  \"status\": \"pending\",\n  \"lines\": [\n    { \"product_id\": 1, \"quantity\": 50, \"unit_price\": \"12.50\" },\n    { \"product_id\": 2, \"quantity\": 30, \"unit_price\": \"8.00\" }\n  ]\n}"
+            },
+            "url": { "raw": "{{base_url}}/restocks", "host": ["{{base_url}}"], "path": ["restocks"] },
+            "description": "Status: pending | in_transit | received | cancelled. Setting to 'received' auto-updates product stock."
+          }, "response": []
+        },
+        {
+          "name": "Update Restock - Mark Received",
+          "request": {
+            "method": "PUT",
+            "header": [{ "key": "Content-Type", "value": "application/json" }],
+            "body": { "mode": "raw", "raw": "{\n  \"status\": \"received\"\n}" },
+            "url": { "raw": "{{base_url}}/restocks/{{restock_id}}", "host": ["{{base_url}}"], "path": ["restocks","{{restock_id}}"] },
+            "description": "Triggers DB trigger that adds quantities to product stock"
+          }, "response": []
+        },
+        {
+          "name": "Update Restock - In Transit",
+          "request": {
+            "method": "PUT",
+            "header": [{ "key": "Content-Type", "value": "application/json" }],
+            "body": { "mode": "raw", "raw": "{\n  \"status\": \"in_transit\"\n}" },
+            "url": { "raw": "{{base_url}}/restocks/{{restock_id}}", "host": ["{{base_url}}"], "path": ["restocks","{{restock_id}}"] }
+          }, "response": []
+        }
+      ]
+    },
+
+    {
+      "name": "Sales",
+      "description": "Sales analytics. All support ?start_date=&end_date= query params.",
+      "item": [
+        {
+          "name": "Total Revenue",
+          "request": {
+            "method": "GET", "header": [],
+            "url": {
+              "raw": "{{base_url}}/sales/total?start_date=2024-01-01&end_date=2024-12-31",
+              "host": ["{{base_url}}"],
+              "path": ["sales","total"],
+              "query": [
+                { "key": "start_date", "value": "2024-01-01" },
+                { "key": "end_date",   "value": "2024-12-31" }
+              ]
+            }
+          }, "response": []
+        },
+        {
+          "name": "Revenue Evolution (by month)",
+          "request": {
+            "method": "GET", "header": [],
+            "url": {
+              "raw": "{{base_url}}/sales/evolution?start_date=2024-01-01&end_date=2024-12-31&grain=month",
+              "host": ["{{base_url}}"],
+              "path": ["sales","evolution"],
+              "query": [
+                { "key": "start_date", "value": "2024-01-01" },
+                { "key": "end_date",   "value": "2024-12-31" },
+                { "key": "grain",      "value": "month", "description": "day | week | month" }
+              ]
+            }
+          }, "response": []
+        },
+        {
+          "name": "Revenue Evolution (by week)",
+          "request": {
+            "method": "GET", "header": [],
+            "url": {
+              "raw": "{{base_url}}/sales/evolution?start_date=2024-01-01&end_date=2024-03-31&grain=week",
+              "host": ["{{base_url}}"],
+              "path": ["sales","evolution"],
+              "query": [
+                { "key": "start_date", "value": "2024-01-01" },
+                { "key": "end_date",   "value": "2024-03-31" },
+                { "key": "grain",      "value": "week" }
+              ]
+            }
+          }, "response": []
+        },
+        {
+          "name": "Average Basket",
+          "request": {
+            "method": "GET", "header": [],
+            "url": {
+              "raw": "{{base_url}}/sales/average-basket?start_date=2024-01-01&end_date=2024-12-31",
+              "host": ["{{base_url}}"],
+              "path": ["sales","average-basket"],
+              "query": [
+                { "key": "start_date", "value": "2024-01-01" },
+                { "key": "end_date",   "value": "2024-12-31" }
+              ]
+            }
+          }, "response": []
+        },
+        {
+          "name": "Average Basket by Client Type",
+          "request": {
+            "method": "GET", "header": [],
+            "url": {
+              "raw": "{{base_url}}/sales/average-basket-by-client-type?start_date=2024-01-01&end_date=2024-12-31",
+              "host": ["{{base_url}}"],
+              "path": ["sales","average-basket-by-client-type"],
+              "query": [
+                { "key": "start_date", "value": "2024-01-01" },
+                { "key": "end_date",   "value": "2024-12-31" }
+              ]
+            }
+          }, "response": []
+        }
+      ]
+    },
+
+    {
+      "name": "Stock Alerts",
+      "description": "Real-time stock monitoring endpoints.",
+      "item": [
+        {
+          "name": "Stock Summary",
+          "request": {
+            "method": "GET", "header": [],
+            "url": { "raw": "{{base_url}}/stocks/summary", "host": ["{{base_url}}"], "path": ["stocks","summary"] }
+          }, "response": []
+        },
+        {
+          "name": "All Stock Alerts",
+          "request": {
+            "method": "GET", "header": [],
+            "url": { "raw": "{{base_url}}/stocks/alerts", "host": ["{{base_url}}"], "path": ["stocks","alerts"] }
+          }, "response": []
+        },
+        {
+          "name": "Out of Stock",
+          "request": {
+            "method": "GET", "header": [],
+            "url": { "raw": "{{base_url}}/stocks/out-of-stock", "host": ["{{base_url}}"], "path": ["stocks","out-of-stock"] }
+          }, "response": []
+        },
+        {
+          "name": "Low Stock",
+          "request": {
+            "method": "GET", "header": [],
+            "url": { "raw": "{{base_url}}/stocks/low-stock", "host": ["{{base_url}}"], "path": ["stocks","low-stock"] }
+          }, "response": []
+        },
+        {
+          "name": "Soon Out of Stock",
+          "request": {
+            "method": "GET", "header": [],
+            "url": { "raw": "{{base_url}}/stocks/soon-out-of-stock", "host": ["{{base_url}}"], "path": ["stocks","soon-out-of-stock"] }
+          }, "response": []
+        },
+        {
+          "name": "Overstock",
+          "request": {
+            "method": "GET", "header": [],
+            "url": { "raw": "{{base_url}}/stocks/overstock", "host": ["{{base_url}}"], "path": ["stocks","overstock"] }
+          }, "response": []
+        }
+      ]
+    },
+
+    {
+      "name": "Global KPIs",
+      "description": "Dashboard-level KPI endpoints. Most support ?start_date=&end_date= query params.",
+      "item": [
+        {
+          "name": "Global Performance",
+          "request": {
+            "method": "GET", "header": [],
+            "url": {
+              "raw": "{{base_url}}/kpis/global-performance?start_date=2024-01-01&end_date=2024-12-31",
+              "host": ["{{base_url}}"],
+              "path": ["kpis","global-performance"],
+              "query": [
+                { "key": "start_date", "value": "2024-01-01" },
+                { "key": "end_date",   "value": "2024-12-31" }
+              ]
+            }
+          }, "response": []
+        },
+        {
+          "name": "Category Analysis",
+          "request": {
+            "method": "GET", "header": [],
+            "url": {
+              "raw": "{{base_url}}/kpis/category-analysis?start_date=2024-01-01&end_date=2024-12-31",
+              "host": ["{{base_url}}"],
+              "path": ["kpis","category-analysis"],
+              "query": [
+                { "key": "start_date", "value": "2024-01-01" },
+                { "key": "end_date",   "value": "2024-12-31" }
+              ]
+            }
+          }, "response": []
+        },
+        {
+          "name": "Supplier Analysis",
+          "request": {
+            "method": "GET", "header": [],
+            "url": {
+              "raw": "{{base_url}}/kpis/supplier-analysis?start_date=2024-01-01&end_date=2024-12-31",
+              "host": ["{{base_url}}"],
+              "path": ["kpis","supplier-analysis"],
+              "query": [
+                { "key": "start_date", "value": "2024-01-01" },
+                { "key": "end_date",   "value": "2024-12-31" }
+              ]
+            }
+          }, "response": []
+        },
+        {
+          "name": "Catalog Health",
+          "request": {
+            "method": "GET", "header": [],
+            "url": { "raw": "{{base_url}}/kpis/catalog-health", "host": ["{{base_url}}"], "path": ["kpis","catalog-health"] }
+          }, "response": []
+        },
+        {
+          "name": "ABC Distribution",
+          "request": {
+            "method": "GET", "header": [],
+            "url": { "raw": "{{base_url}}/kpis/abc-distribution", "host": ["{{base_url}}"], "path": ["kpis","abc-distribution"] }
+          }, "response": []
+        },
+        {
+          "name": "Trends",
+          "request": {
+            "method": "GET", "header": [],
+            "url": {
+              "raw": "{{base_url}}/kpis/trends?start_date=2024-01-01&end_date=2024-12-31",
+              "host": ["{{base_url}}"],
+              "path": ["kpis","trends"],
+              "query": [
+                { "key": "start_date", "value": "2024-01-01" },
+                { "key": "end_date",   "value": "2024-12-31" }
+              ]
+            }
+          }, "response": []
+        },
+        {
+          "name": "Operational Efficiency",
+          "request": {
+            "method": "GET", "header": [],
+            "url": {
+              "raw": "{{base_url}}/kpis/operational-efficiency?start_date=2024-01-01&end_date=2024-12-31",
+              "host": ["{{base_url}}"],
+              "path": ["kpis","operational-efficiency"],
+              "query": [
+                { "key": "start_date", "value": "2024-01-01" },
+                { "key": "end_date",   "value": "2024-12-31" }
+              ]
+            }
+          }, "response": []
+        },
+        {
+          "name": "Price Analysis",
+          "request": {
+            "method": "GET", "header": [],
+            "url": { "raw": "{{base_url}}/kpis/price-analysis", "host": ["{{base_url}}"], "path": ["kpis","price-analysis"] }
+          }, "response": []
+        },
+        {
+          "name": "Top / Flop Products",
+          "request": {
+            "method": "GET", "header": [],
+            "url": {
+              "raw": "{{base_url}}/kpis/top-flop?start_date=2024-01-01&end_date=2024-12-31",
+              "host": ["{{base_url}}"],
+              "path": ["kpis","top-flop"],
+              "query": [
+                { "key": "start_date", "value": "2024-01-01" },
+                { "key": "end_date",   "value": "2024-12-31" }
+              ]
+            }
+          }, "response": []
+        },
+        {
+          "name": "Forecast KPIs",
+          "request": {
+            "method": "GET", "header": [],
+            "url": { "raw": "{{base_url}}/kpis/forecast", "host": ["{{base_url}}"], "path": ["kpis","forecast"] }
+          }, "response": []
+        },
+        {
+          "name": "Time Series",
+          "request": {
+            "method": "GET", "header": [],
+            "url": {
+              "raw": "{{base_url}}/kpis/time-series?start_date=2024-01-01&end_date=2024-12-31",
+              "host": ["{{base_url}}"],
+              "path": ["kpis","time-series"],
+              "query": [
+                { "key": "start_date", "value": "2024-01-01" },
+                { "key": "end_date",   "value": "2024-12-31" }
+              ]
+            }
+          }, "response": []
+        }
+      ]
+    },
+
+    {
+      "name": "Alerts (Notifications)",
+      "description": "Alert lifecycle management. Statuses: new | acknowledged | in_progress | resolved | dismissed.",
+      "item": [
+        {
+          "name": "Get All Alerts",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "if (pm.response.code === 200) {",
+                  "    var json = pm.response.json();",
+                  "    if (json.data && json.data.length > 0) {",
+                  "        pm.collectionVariables.set('alert_id', json.data[0].id);",
+                  "    }",
+                  "}"
+                ],
+                "type": "text/javascript"
+              }
+            }
+          ],
+          "request": {
+            "method": "GET", "header": [],
+            "url": {
+              "raw": "{{base_url}}/alerts?limit=20&offset=0",
+              "host": ["{{base_url}}"],
+              "path": ["alerts"],
+              "query": [
+                { "key": "status",     "value": "new",   "disabled": true },
+                { "key": "severity",   "value": "HIGH",  "disabled": true },
+                { "key": "model_type", "value": "demand_forecast", "disabled": true },
+                { "key": "limit",      "value": "20" },
+                { "key": "offset",     "value": "0" }
+              ]
+            },
+            "description": "Auto-saves first alert ID to {{alert_id}}"
+          }, "response": []
+        },
+        {
+          "name": "Get Alert Summary",
+          "request": {
+            "method": "GET", "header": [],
+            "url": { "raw": "{{base_url}}/alerts/summary", "host": ["{{base_url}}"], "path": ["alerts","summary"] },
+            "description": "Counts by status, severity, and model type"
+          }, "response": []
+        },
+        {
+          "name": "Get Alert by ID",
+          "request": {
+            "method": "GET", "header": [],
+            "url": { "raw": "{{base_url}}/alerts/{{alert_id}}", "host": ["{{base_url}}"], "path": ["alerts","{{alert_id}}"] }
+          }, "response": []
+        },
+        {
+          "name": "Update Alert Status",
+          "request": {
+            "method": "PUT",
+            "header": [{ "key": "Content-Type", "value": "application/json" }],
+            "body": { "mode": "raw", "raw": "{\n  \"status\": \"acknowledged\"\n}" },
+            "url": { "raw": "{{base_url}}/alerts/{{alert_id}}/status", "host": ["{{base_url}}"], "path": ["alerts","{{alert_id}}","status"] },
+            "description": "Statuses: new | acknowledged | in_progress | resolved | dismissed"
+          }, "response": []
+        },
+        {
+          "name": "Bulk Update Alert Status",
+          "request": {
+            "method": "PUT",
+            "header": [{ "key": "Content-Type", "value": "application/json" }],
+            "body": { "mode": "raw", "raw": "{\n  \"ids\": [1, 2, 3],\n  \"status\": \"resolved\"\n}" },
+            "url": { "raw": "{{base_url}}/alerts/bulk-status", "host": ["{{base_url}}"], "path": ["alerts","bulk-status"] }
+          }, "response": []
+        },
+        {
+          "name": "Cleanup Resolved Alerts",
+          "request": {
+            "method": "DELETE", "header": [],
+            "url": {
+              "raw": "{{base_url}}/alerts/cleanup?days=30",
+              "host": ["{{base_url}}"],
+              "path": ["alerts","cleanup"],
+              "query": [{ "key": "days", "value": "30", "description": "Delete alerts older than N days" }]
+            },
+            "description": "Deletes resolved/dismissed alerts older than N days"
+          }, "response": []
+        }
+      ]
+    },
+
+    {
+      "name": "AI Predictions",
+      "description": "Read ML predictions stored by the AI service. All are GET-only.",
+      "item": [
+        {
+          "name": "Urgent Restocks",
+          "request": {
+            "method": "GET", "header": [],
+            "url": { "raw": "{{base_url}}/ai/urgent-restocks", "host": ["{{base_url}}"], "path": ["ai","urgent-restocks"] },
+            "description": "Products needing immediate restock (URGENT + HIGH urgency)"
+          }, "response": []
+        },
+        {
+          "name": "Demand Forecasts (all)",
+          "request": {
+            "method": "GET", "header": [],
+            "url": {
+              "raw": "{{base_url}}/ai/forecasts?limit=20&offset=0",
+              "host": ["{{base_url}}"],
+              "path": ["ai","forecasts"],
+              "query": [
+                { "key": "urgency", "value": "URGENT", "disabled": true },
+                { "key": "limit",   "value": "20" },
+                { "key": "offset",  "value": "0" }
+              ]
+            }
+          }, "response": []
+        },
+        {
+          "name": "Demand Forecast by Product",
+          "request": {
+            "method": "GET", "header": [],
+            "url": { "raw": "{{base_url}}/ai/forecasts/{{product_id}}", "host": ["{{base_url}}"], "path": ["ai","forecasts","{{product_id}}"] }
+          }, "response": []
+        },
+        {
+          "name": "Product Classifications (all)",
+          "request": {
+            "method": "GET", "header": [],
+            "url": {
+              "raw": "{{base_url}}/ai/classifications?limit=20&offset=0",
+              "host": ["{{base_url}}"],
+              "path": ["ai","classifications"],
+              "query": [
+                { "key": "abc_class",  "value": "A",        "disabled": true },
+                { "key": "priority",   "value": "CRITICAL", "disabled": true },
+                { "key": "limit",      "value": "20" },
+                { "key": "offset",     "value": "0" }
+              ]
+            }
+          }, "response": []
+        },
+        {
+          "name": "Classification by Product",
+          "request": {
+            "method": "GET", "header": [],
+            "url": { "raw": "{{base_url}}/ai/classifications/{{product_id}}", "host": ["{{base_url}}"], "path": ["ai","classifications","{{product_id}}"] }
+          }, "response": []
+        },
+        {
+          "name": "Product Clusters (all)",
+          "request": {
+            "method": "GET", "header": [],
+            "url": {
+              "raw": "{{base_url}}/ai/clusters?limit=20&offset=0",
+              "host": ["{{base_url}}"],
+              "path": ["ai","clusters"],
+              "query": [
+                { "key": "cluster_id", "value": "0",  "disabled": true },
+                { "key": "limit",      "value": "20" },
+                { "key": "offset",     "value": "0" }
+              ]
+            }
+          }, "response": []
+        },
+        {
+          "name": "Cluster by Product",
+          "request": {
+            "method": "GET", "header": [],
+            "url": { "raw": "{{base_url}}/ai/clusters/{{product_id}}", "host": ["{{base_url}}"], "path": ["ai","clusters","{{product_id}}"] }
+          }, "response": []
+        },
+        {
+          "name": "Supplier Scores (all)",
+          "request": {
+            "method": "GET", "header": [],
+            "url": {
+              "raw": "{{base_url}}/ai/supplier-scores?limit=20&offset=0",
+              "host": ["{{base_url}}"],
+              "path": ["ai","supplier-scores"],
+              "query": [
+                { "key": "rating", "value": "EXCELLENT", "disabled": true },
+                { "key": "limit",  "value": "20" },
+                { "key": "offset", "value": "0" }
+              ]
+            }
+          }, "response": []
+        },
+        {
+          "name": "Supplier Score by Supplier",
+          "request": {
+            "method": "GET", "header": [],
+            "url": { "raw": "{{base_url}}/ai/supplier-scores/{{supplier_id}}", "host": ["{{base_url}}"], "path": ["ai","supplier-scores","{{supplier_id}}"] }
+          }, "response": []
+        },
+        {
+          "name": "Price Suggestions",
+          "request": {
+            "method": "GET", "header": [],
+            "url": {
+              "raw": "{{base_url}}/ai/price-suggestions?limit=20&offset=0",
+              "host": ["{{base_url}}"],
+              "path": ["ai","price-suggestions"],
+              "query": [
+                { "key": "limit",  "value": "20" },
+                { "key": "offset", "value": "0" }
+              ]
+            }
+          }, "response": []
+        },
+        {
+          "name": "Price Anomalies",
+          "request": {
+            "method": "GET", "header": [],
+            "url": {
+              "raw": "{{base_url}}/ai/price-anomalies?anomalies_only=true&limit=20&offset=0",
+              "host": ["{{base_url}}"],
+              "path": ["ai","price-anomalies"],
+              "query": [
+                { "key": "anomalies_only", "value": "true" },
+                { "key": "limit",          "value": "20" },
+                { "key": "offset",         "value": "0" }
+              ]
+            }
+          }, "response": []
+        },
+        {
+          "name": "Sales Anomalies",
+          "request": {
+            "method": "GET", "header": [],
+            "url": {
+              "raw": "{{base_url}}/ai/sales-anomalies?anomalies_only=true&limit=20&offset=0",
+              "host": ["{{base_url}}"],
+              "path": ["ai","sales-anomalies"],
+              "query": [
+                { "key": "anomalies_only", "value": "true" },
+                { "key": "limit",          "value": "20" },
+                { "key": "offset",         "value": "0" }
+              ]
+            }
+          }, "response": []
+        }
+      ]
+    },
+
+    {
+      "name": "AI Insights",
+      "description": "Aggregated AI dashboard summary (newly mounted endpoint).",
+      "item": [
+        {
+          "name": "Get AI Insights",
+          "request": {
+            "method": "GET", "header": [],
+            "url": {
+              "raw": "{{base_url}}/ai/insights?period=30",
+              "host": ["{{base_url}}"],
+              "path": ["ai","insights"],
+              "query": [{ "key": "period", "value": "30", "description": "Number of days to look back" }]
+            },
+            "description": "Aggregated insights: forecasts, anomalies, classifications, suggestions"
+          }, "response": []
+        }
+      ]
+    },
+
+    {
+      "name": "AI Service (port 8001)",
+      "description": "Direct calls to the Python AI service. No authentication required.",
+      "item": [
+        {
+          "name": "AI Service Health",
+          "request": {
+            "auth": { "type": "noauth" },
+            "method": "GET", "header": [],
+            "url": { "raw": "{{ai_base_url}}/ai/health", "host": ["{{ai_base_url}}"], "path": ["ai","health"] },
+            "description": "Returns DB connection status"
+          }, "response": []
+        },
+        {
+          "name": "AI Service Status",
+          "request": {
+            "auth": { "type": "noauth" },
+            "method": "GET", "header": [],
+            "url": { "raw": "{{ai_base_url}}/ai/status", "host": ["{{ai_base_url}}"], "path": ["ai","status"] },
+            "description": "Returns last run time and is_running flag"
+          }, "response": []
+        },
+        {
+          "name": "Trigger AI Run (manual)",
+          "request": {
+            "auth": { "type": "noauth" },
+            "method": "POST", "header": [],
+            "url": { "raw": "{{ai_base_url}}/ai/run", "host": ["{{ai_base_url}}"], "path": ["ai","run"] },
+            "description": "Manually triggers all 7 AI handlers (forecasting, classification, clustering, supplier scoring, price suggestions, price anomalies, sales anomalies)"
+          }, "response": []
+        }
+      ]
+    },
+
+    {
+      "name": "System",
+      "description": "Health check and API documentation.",
+      "item": [
+        {
+          "name": "API Health",
+          "request": {
+            "auth": { "type": "noauth" },
+            "method": "GET", "header": [],
+            "url": { "raw": "{{base_url}}/health", "host": ["{{base_url}}"], "path": ["health"] }
+          }, "response": []
+        },
+        {
+          "name": "Swagger UI",
+          "request": {
+            "auth": { "type": "noauth" },
+            "method": "GET", "header": [],
+            "url": { "raw": "{{base_url}}/swagger-ui/", "host": ["{{base_url}}"], "path": ["swagger-ui",""] },
+            "description": "Open in browser for interactive docs"
+          }, "response": []
+        },
+        {
+          "name": "OpenAPI JSON",
+          "request": {
+            "auth": { "type": "noauth" },
+            "method": "GET", "header": [],
+            "url": { "raw": "{{base_url}}/api-docs/openapi.json", "host": ["{{base_url}}"], "path": ["api-docs","openapi.json"] }
+          }, "response": []
+        }
+      ]
     }
+
   ]
 }
