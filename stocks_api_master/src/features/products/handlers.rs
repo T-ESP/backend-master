@@ -8,7 +8,7 @@ use sqlx::PgPool;
 
 use crate::common::responses::{SuccessResponse, ErrorResponse};
 use crate::common::error_codes;
-use serde_json::{json, Value};
+use serde_json::json;
 
 use super::dto::{CreateProductRequest, UpdateProductRequest, StockUpdateRequest, AddPriceRequest, SearchParams, ProductResponse, ProductLightResponse};
 use super::services::ProductService;
@@ -311,7 +311,8 @@ pub async fn create_product(
         req.supplier_id,
         req.stock_quantity,
         req.buying_price,
-        req.status,  // ✅ ADD THIS LINE
+        req.status,
+        req.selling_price,
     ).await {
         Ok(new_product) => (
             StatusCode::CREATED,
@@ -415,7 +416,7 @@ pub async fn update_product(
         product.supplier_id,
         product.stock_quantity,
         product.buying_price,
-        product.status,  // ✅ ADD THIS LINE
+        product.status,
         product.stock_quantity.is_some(),
     ).await {
         Ok(updated_product) => (

@@ -3,7 +3,10 @@ use axum::http::StatusCode;
 use sqlx::PgPool;
 use validator::Validate;
 use crate::common::{responses::{SuccessResponse, ErrorResponse}, error_codes};
-use super::{dto::{CreateSupplierRequest, UpdateSupplierRequest}, services};
+use super::{
+    dto::{CreateSupplierRequest, SupplierResponse, UpdateSupplierRequest},
+    services,
+};
 
 pub async fn get_supplier_profile(
     Path((_commerce_id, id)): Path<(String, i32)>,

@@ -261,15 +261,18 @@ impl ProductService {
         stock_quantity: i32,
         buying_price: f64,
         status: Option<ProductStatus>,
+        selling_price: Option<f64>,
     ) -> Result<ProductResponse, sqlx::Error> {
         let status_value = status.unwrap_or(ProductStatus::InStock);
-        
+
+        let mut tx = pool.begin().await?;
+
         let row = sqlx::query(
-            "INSERT INTO products_pro (name_pro, category_pro, reference_pro, supplier_id_pro, 
+            "INSERT INTO products_pro (name_pro, category_pro, reference_pro, supplier_id_pro,
                                       stock_quantity_pro, buying_price_pro, status_pro, date_last_reassor_pro)
              VALUES ($1, $2, $3, $4, $5, $6, $7::product_status_enum, NOW())
              RETURNING id_pro, name_pro, category_pro, reference_pro, supplier_id_pro,
-                       stock_quantity_pro, buying_price_pro, status_pro, date_last_reassor_pro, 
+                       stock_quantity_pro, buying_price_pro, status_pro, date_last_reassor_pro,
                        created_at, updated_at"
         )
         .bind(name)
@@ -279,10 +282,23 @@ impl ProductService {
         .bind(stock_quantity)
         .bind(buying_price)
         .bind(status_value)
-        .fetch_one(pool)
+        .fetch_one(&mut *tx)
         .await?;
 
-        Ok(ProductResponse::from_row(&row))
+        let product = ProductResponse::from_row(&row);
+
+        if let Some(price) = selling_price {
+            sqlx::query(
+                "INSERT INTO productprices_prp (product_ref_prp, price_prp) VALUES ($1, $2)"
+            )
+            .bind(product.id)
+            .bind(price)
+            .execute(&mut *tx)
+            .await?;
+        }
+
+        tx.commit().await?;
+        Ok(product)
     }
 
     pub async fn add_product_price(

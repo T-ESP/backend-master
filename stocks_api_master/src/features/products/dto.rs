@@ -64,6 +64,9 @@ pub struct CreateProductRequest {
     pub stock_quantity: i32,
     pub buying_price: f64,
     pub status: Option<ProductStatus>,
+    /// Prix de vente initial : inséré dans `productprices_prp` pour des KPI cohérents dès la création.
+    #[serde(default)]
+    pub selling_price: Option<f64>,
 }
 
 #[derive(Debug, Deserialize, ToSchema)]
