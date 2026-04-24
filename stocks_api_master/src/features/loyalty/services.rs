@@ -125,7 +125,7 @@ impl LoyaltyService {
         let total_points: i64 = total_row.get("total");
 
         let rows = sqlx::query(
-            "SELECT id_lpo, order_id_lpo, points_lpo, created_at
+            "SELECT id_lpo, order_id_lpo, points_lpo, reason_lpo, created_at
              FROM loyalty_points_lpo
              WHERE user_id_lpo = $1
              ORDER BY created_at DESC"
