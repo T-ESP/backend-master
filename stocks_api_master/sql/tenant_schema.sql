@@ -122,21 +122,51 @@ CREATE TABLE IF NOT EXISTS line_order_lor (
 -- ============================================================================
 
 CREATE TABLE IF NOT EXISTS loyalty_config_lco (
-    id_lco           SERIAL PRIMARY KEY,
-    euros_per_point  NUMERIC(10,2) NOT NULL DEFAULT 2.00 CHECK (euros_per_point > 0),
-    created_at       TIMESTAMPTZ DEFAULT NOW(),
-    updated_at       TIMESTAMPTZ DEFAULT NOW()
+    id_lco             SERIAL PRIMARY KEY,
+    euros_per_point    NUMERIC(10,2) NOT NULL DEFAULT 2.00  CHECK (euros_per_point > 0),
+    points_required    INTEGER       NOT NULL DEFAULT 100   CHECK (points_required > 0),
+    discount_percent   NUMERIC(5,2)  NOT NULL DEFAULT 5.00  CHECK (discount_percent > 0 AND discount_percent <= 100),
+    created_at         TIMESTAMPTZ DEFAULT NOW(),
+    updated_at         TIMESTAMPTZ DEFAULT NOW()
 );
+
+-- Idempotent : si la table existait déjà sans ces colonnes, on les ajoute
+ALTER TABLE loyalty_config_lco
+    ADD COLUMN IF NOT EXISTS points_required  INTEGER      NOT NULL DEFAULT 100,
+    ADD COLUMN IF NOT EXISTS discount_percent NUMERIC(5,2) NOT NULL DEFAULT 5.00;
 
 CREATE TABLE IF NOT EXISTS loyalty_points_lpo (
     id_lpo        SERIAL PRIMARY KEY,
     user_id_lpo   INTEGER NOT NULL,
-    order_id_lpo  INTEGER NOT NULL,
-    points_lpo    INTEGER NOT NULL CHECK (points_lpo > 0),
+    order_id_lpo  INTEGER,
+    points_lpo    INTEGER NOT NULL CHECK (points_lpo <> 0),
+    reason_lpo    VARCHAR,
     created_at    TIMESTAMPTZ DEFAULT NOW(),
     FOREIGN KEY (user_id_lpo)  REFERENCES users_usr(id_usr) ON DELETE CASCADE,
     FOREIGN KEY (order_id_lpo) REFERENCES order_ord(id_ord) ON DELETE CASCADE
 );
+
+-- Idempotent : si la table existait avec l'ancienne structure (order_id NOT NULL,
+-- pas de colonne reason, check > 0), on met à jour
+ALTER TABLE loyalty_points_lpo
+    ALTER COLUMN order_id_lpo DROP NOT NULL,
+    ADD COLUMN IF NOT EXISTS reason_lpo VARCHAR;
+
+DO $$
+BEGIN
+    IF EXISTS (
+        SELECT 1 FROM information_schema.check_constraints
+        WHERE constraint_name = 'loyalty_points_lpo_points_lpo_check'
+    ) THEN
+        ALTER TABLE loyalty_points_lpo DROP CONSTRAINT loyalty_points_lpo_points_lpo_check;
+        ALTER TABLE loyalty_points_lpo ADD CONSTRAINT loyalty_points_lpo_points_lpo_check CHECK (points_lpo <> 0);
+    END IF;
+END $$;
+
+-- Backfill : attribue un code de fidélité aux utilisateurs existants qui n'en ont pas
+UPDATE users_usr
+SET fidelity_code_usr = 'FID-' || LPAD(id_usr::TEXT, 8, '0')
+WHERE fidelity_code_usr IS NULL;
 
 -- ============================================================================
 -- RESTOCK TABLES
