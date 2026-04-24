@@ -242,7 +242,7 @@
 
     {
       "name": "Users",
-      "description": "User management. All endpoints require JWT + commerce_id.",
+      "description": "User management. All endpoints require JWT + commerce_id. Chaque création génère un code de fidélité unique (format FID-XXXXXXXX).",
       "item": [
         {
           "name": "Get All Users",
@@ -258,6 +258,33 @@
           "response": []
         },
         {
+          "name": "Get User by ID",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{local_base_url}}/api/{{commerce_id}}/users/{{user_id}}",
+              "host": ["{{local_base_url}}"],
+              "path": ["api", "{{commerce_id}}", "users", "{{user_id}}"]
+            }
+          },
+          "response": []
+        },
+        {
+          "name": "Get User by Fidelity Code (barcode scan)",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{local_base_url}}/api/{{commerce_id}}/users/fidelity/FID-12345678",
+              "host": ["{{local_base_url}}"],
+              "path": ["api", "{{commerce_id}}", "users", "fidelity", "FID-12345678"]
+            },
+            "description": "Recherche un utilisateur par son code de fidélité. À utiliser après un scan de code-barre côté front."
+          },
+          "response": []
+        },
+        {
           "name": "Create User",
           "event": [
             {
@@ -268,6 +295,10 @@
                   "    var json = pm.response.json();",
                   "    if (json.data && json.data.id) {",
                   "        pm.collectionVariables.set('user_id', json.data.id);",
+                  "        console.log('User ID saved:', json.data.id);",
+                  "    }",
+                  "    if (json.data && json.data.fidelity_code) {",
+                  "        console.log('Code de fidélité généré:', json.data.fidelity_code);",
                   "    }",
                   "}"
                 ],
@@ -286,7 +317,8 @@
               "raw": "{{local_base_url}}/api/{{commerce_id}}/users",
               "host": ["{{local_base_url}}"],
               "path": ["api", "{{commerce_id}}", "users"]
-            }
+            },
+            "description": "Crée un utilisateur. La réponse contient le champ `fidelity_code` (format FID-XXXXXXXX) à utiliser comme code-barre côté front."
           },
           "response": []
         },

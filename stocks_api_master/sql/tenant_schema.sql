@@ -35,16 +35,19 @@ CREATE TABLE IF NOT EXISTS role_rol (
 );
 
 CREATE TABLE IF NOT EXISTS users_usr (
-    id_usr        SERIAL PRIMARY KEY,
-    email_usr     VARCHAR NOT NULL UNIQUE,
-    lastname_usr  VARCHAR NOT NULL,
-    firstname_usr VARCHAR NOT NULL,
-    password_usr  VARCHAR NOT NULL,
-    phone_usr     VARCHAR,
-    status_usr    VARCHAR DEFAULT 'active',
-    created_at    TIMESTAMPTZ DEFAULT NOW(),
-    updated_at    TIMESTAMPTZ DEFAULT NOW()
+    id_usr             SERIAL PRIMARY KEY,
+    email_usr          VARCHAR NOT NULL UNIQUE,
+    lastname_usr       VARCHAR NOT NULL,
+    firstname_usr      VARCHAR NOT NULL,
+    password_usr       VARCHAR NOT NULL,
+    phone_usr          VARCHAR,
+    status_usr         VARCHAR DEFAULT 'active',
+    fidelity_code_usr  VARCHAR UNIQUE,
+    created_at         TIMESTAMPTZ DEFAULT NOW(),
+    updated_at         TIMESTAMPTZ DEFAULT NOW()
 );
+
+CREATE INDEX IF NOT EXISTS idx_users_fidelity_code ON users_usr(fidelity_code_usr);
 
 CREATE TABLE IF NOT EXISTS role_user_rus (
     id_role_rus INTEGER NOT NULL,
