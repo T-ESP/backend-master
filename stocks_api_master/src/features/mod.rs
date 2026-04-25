@@ -11,3 +11,4 @@ pub mod alerts;
 pub mod ai_predictions;
 pub mod global_kpis;
 pub mod restocks;
+pub mod loyalty;
