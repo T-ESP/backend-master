@@ -18,6 +18,10 @@ services:
       - "traefik.http.routers.backend-master-api.service=backend-master-svc"
       - "traefik.http.services.backend-master-svc.loadbalancer.server.port=8080"
 
+  pgadmin:
+    ports:
+      - "127.0.0.1:5051:80"
+
 networks:
   monitoring_net:
     external: true
