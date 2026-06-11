@@ -54,6 +54,25 @@ def _use_grammar() -> bool:
     return os.getenv("LOCAL_LLM_USE_GRAMMAR", "true").lower() == "true"
 
 
+def _repair_mojibake(s: str) -> str:
+    """Reverse UTF-8 text that was decoded as Latin-1 (``é`` -> ``Ã©``).
+
+    llama.cpp output can surface this double-encoding for accented characters.
+    The repair is safe: a string that is already correct UTF-8 (e.g. a real
+    ``é`` = U+00E9) raises on the utf-8 decode and is returned unchanged, and we
+    also reject any repair that introduces replacement characters.
+    """
+    if not s:
+        return s
+    try:
+        repaired = s.encode("latin-1").decode("utf-8")
+    except (UnicodeEncodeError, UnicodeDecodeError):
+        return s
+    if "�" in repaired:
+        return s
+    return repaired
+
+
 # Single shared lock — llama.cpp generation is single-threaded per model.
 _LLAMA_LOCK = threading.Lock()
 
@@ -224,7 +243,7 @@ class LocalLLMProvider(LLMProvider):
         latency_ms = int((time.time() - start) * 1000)
 
         choice = resp["choices"][0]
-        raw_content = choice["message"].get("content") or ""
+        raw_content = _repair_mojibake(choice["message"].get("content") or "")
         finish = choice.get("finish_reason") or "stop"
 
         # If we stopped on the tool-call closer, the closing tag was eaten — restore.
