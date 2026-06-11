@@ -1,4 +1,4 @@
-import os
+﻿import os
 import threading
 from flask import Flask, jsonify
 from scheduler import start_scheduler, run_all_jobs, get_metrics
@@ -45,6 +45,13 @@ def trigger_run():
         with _run_lock:
             _is_running = True
             try:
+                # Free local LLM RAM during heavy ML cron run.
+                try:
+                    from chat.llm.factory import _instance as _llm_instance  # type: ignore
+                    _llm_instance("local").unload()
+                except Exception as e:
+                    logger.warning("Could not unload local LLM before cron: %s", e)
+
                 run_all_jobs()
             finally:
                 _is_running = False
@@ -55,18 +62,53 @@ def trigger_run():
     return jsonify({"message": "AI jobs triggered successfully", "status": "started"}), 202
 
 
+# ---------------------------------------------------------------------------
+# Chatbot blueprint
+# ---------------------------------------------------------------------------
+try:
+    from chat.routes import bp as chat_bp
+    app.register_blueprint(chat_bp)
+    logger.info("Chat blueprint registered")
+except Exception as e:
+    logger.error("Failed to register chat blueprint: %s", e)
+
+
+def _index_rag_at_startup() -> None:
+    """Run the RAG indexer on startup if configured.
+
+    Runs in a background thread so the HTTP server starts immediately.
+    """
+    if os.getenv("RAG_INDEX_ON_STARTUP", "true").lower() != "true":
+        logger.info("RAG_INDEX_ON_STARTUP=false — skipping index at startup")
+        return
+
+    def _job():
+        try:
+            from chat.rag import index_corpus
+            logger.info("Running RAG indexing at startup...")
+            metrics = index_corpus(force=False)
+            logger.info("RAG index complete: %s", metrics)
+        except Exception as e:
+            logger.exception("RAG startup indexing failed: %s", e)
+
+    threading.Thread(target=_job, daemon=True).start()
+
+
 if __name__ == "__main__":
     print("AI Service starting...")
 
     # Start the background scheduler (runs on startup + cron)
     scheduler = start_scheduler()
 
+    # Kick off RAG indexing in the background
+    _index_rag_at_startup()
+
     # Start the Flask HTTP server
     port = int(os.getenv("AI_SERVICE_PORT", "8001"))
     logger.info(f"Starting HTTP server on port {port}")
 
     try:
-        app.run(host="0.0.0.0", port=port, debug=False)
+        app.run(host="0.0.0.0", port=port, debug=False, threaded=True)
     finally:
         scheduler.shutdown()
         close_pool()
