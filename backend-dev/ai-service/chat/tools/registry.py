@@ -27,14 +27,43 @@ logger = get_logger("chat.tools")
 
 @dataclass
 class ToolContext:
-    """Runtime context passed to every tool invocation."""
+    """Runtime context passed to every tool invocation.
+
+    Multi-tenant: `commerce_id` scopes every Rust-API call to the caller's tenant
+    (`/api/{commerce_id}/...`). `user_id` is kept only for backward compatibility
+    and is unused (master auth is commerce-level)."""
     user_jwt: str
-    user_id: int
-    session_id: str
+    session_id: str = ""
+    commerce_id: str = ""
+    slug: str = ""
+    user_id: int = 0
 
     @property
     def auth_headers(self) -> dict[str, str]:
         return {"Authorization": f"Bearer {self.user_jwt}"}
+
+
+# ai_predictions endpoints are nested under `/ai/predictions` in
+# stocks_api_master, whereas the original flat API exposed them at `/ai/...`.
+_AI_PREDICTION_PREFIXES = (
+    "/ai/forecasts", "/ai/classifications", "/ai/clusters", "/ai/supplier-scores",
+    "/ai/price-suggestions", "/ai/price-anomalies", "/ai/sales-anomalies",
+    "/ai/urgent-restocks",
+)
+
+
+def _tenant_url(ctx: ToolContext, path: str) -> str:
+    """Build a tenant-scoped Rust-API URL from a flat path.
+
+    Prepends `/api/{commerce_id}` and remaps the ai_predictions endpoints to
+    their nested `/ai/predictions/...` location in stocks_api_master.
+    """
+    for pref in _AI_PREDICTION_PREFIXES:
+        if path == pref or path.startswith(pref + "/"):
+            path = "/ai/predictions" + path[len("/ai"):]
+            break
+    base = f"/api/{ctx.commerce_id}" if ctx.commerce_id else ""
+    return f"{STOCKS_API_URL}{base}{path}"
 
 
 MAX_LIST_ITEMS = int(os.getenv("CHAT_TOOL_MAX_LIST_ITEMS", "12"))
@@ -144,7 +173,7 @@ def execute_tool(name: str, args: dict[str, Any], ctx: ToolContext) -> ToolResul
 # ----------------------------------------------------------------------
 
 def _api_get(ctx: ToolContext, path: str, params: dict | None = None) -> Any:
-    url = f"{STOCKS_API_URL}{path}"
+    url = _tenant_url(ctx, path)
     r = requests.get(url, headers=ctx.auth_headers, params=params, timeout=HTTP_TIMEOUT)
     r.raise_for_status()
     body = r.json()
@@ -169,7 +198,7 @@ def _period_params(args: dict, default_days: int = 30) -> tuple[dict, int]:
 
 
 def _api_post(ctx: ToolContext, path: str, payload: dict | None = None) -> Any:
-    url = f"{STOCKS_API_URL}{path}"
+    url = _tenant_url(ctx, path)
     r = requests.post(url, headers=ctx.auth_headers, json=payload or {}, timeout=HTTP_TIMEOUT)
     r.raise_for_status()
     if r.text:
@@ -1056,7 +1085,7 @@ def _resolve_alert(ctx: ToolContext, args: dict) -> ToolResult:
     aid = int(args["alert_id"])
     status = str(args.get("status", "resolved"))
     import json as _json
-    url = f"{STOCKS_API_URL}/alerts/{aid}/status"
+    url = _tenant_url(ctx, f"/alerts/{aid}/status")
     r = requests.put(url, headers=ctx.auth_headers, json={"status": status},
                      timeout=HTTP_TIMEOUT)
     r.raise_for_status()
@@ -1094,7 +1123,7 @@ def _update_product(ctx: ToolContext, args: dict) -> ToolResult:
     if not payload:
         return ToolResult(ok=False, error="Aucun champ à modifier "
                           "(buying_price, stock_quantity ou status requis)")
-    url = f"{STOCKS_API_URL}/products/{pid}"
+    url = _tenant_url(ctx, f"/products/{pid}")
     r = requests.put(url, headers=ctx.auth_headers, json=payload, timeout=HTTP_TIMEOUT)
     r.raise_for_status()
     body = r.json() if r.text else {"ok": True}

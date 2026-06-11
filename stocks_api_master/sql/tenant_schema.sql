@@ -505,3 +505,108 @@ WHERE df.urgency IN ('URGENT', 'HIGH')
 ORDER BY
     CASE df.urgency WHEN 'URGENT' THEN 1 WHEN 'HIGH' THEN 2 END,
     df.days_until_stockout;
+
+-- ============================================================================
+-- CHATBOT (per-tenant conversations)
+-- ============================================================================
+-- Conversations are tenant-private, so they live in each tenant DB. Ownership is
+-- keyed by owner_email (the authenticated commerce email) — master auth is
+-- commerce-level, so there is no numeric per-user id in the token. The shared
+-- RAG corpus (rag_documents / rag_chunks) lives in the master DB instead.
+
+CREATE EXTENSION IF NOT EXISTS vector;
+CREATE EXTENSION IF NOT EXISTS pgcrypto;
+
+DO $$ BEGIN
+    CREATE TYPE chat_role AS ENUM ('user', 'assistant', 'tool', 'system');
+EXCEPTION WHEN duplicate_object THEN null; END $$;
+
+DO $$ BEGIN
+    CREATE TYPE pending_action_status AS ENUM ('pending', 'confirmed', 'cancelled', 'expired');
+EXCEPTION WHEN duplicate_object THEN null; END $$;
+
+CREATE TABLE IF NOT EXISTS chat_sessions (
+    session_id   UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+    owner_email  TEXT NOT NULL,
+    title        TEXT,
+    provider     TEXT NOT NULL DEFAULT 'auto',
+    created_at   TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+    updated_at   TIMESTAMPTZ NOT NULL DEFAULT NOW()
+);
+
+CREATE INDEX IF NOT EXISTS chat_sessions_owner_idx
+    ON chat_sessions(owner_email, updated_at DESC);
+
+CREATE TABLE IF NOT EXISTS chat_messages (
+    message_id   BIGSERIAL PRIMARY KEY,
+    session_id   UUID NOT NULL REFERENCES chat_sessions(session_id) ON DELETE CASCADE,
+    role         chat_role NOT NULL,
+    content      TEXT NOT NULL,
+    tool_calls   JSONB,
+    tool_name    TEXT,
+    provider     TEXT,
+    tokens_in    INTEGER,
+    tokens_out   INTEGER,
+    latency_ms   INTEGER,
+    created_at   TIMESTAMPTZ NOT NULL DEFAULT NOW()
+);
+
+CREATE INDEX IF NOT EXISTS chat_messages_session_idx
+    ON chat_messages(session_id, created_at);
+
+CREATE TABLE IF NOT EXISTS chat_pending_actions (
+    action_id    UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+    session_id   UUID NOT NULL REFERENCES chat_sessions(session_id) ON DELETE CASCADE,
+    message_id   BIGINT REFERENCES chat_messages(message_id) ON DELETE SET NULL,
+    tool_name    TEXT NOT NULL,
+    tool_args    JSONB NOT NULL,
+    status       pending_action_status NOT NULL DEFAULT 'pending',
+    created_at   TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+    resolved_at  TIMESTAMPTZ
+);
+
+CREATE INDEX IF NOT EXISTS chat_pending_actions_session_idx
+    ON chat_pending_actions(session_id, status);
+
+CREATE TABLE IF NOT EXISTS chat_summaries (
+    summary_id       BIGSERIAL PRIMARY KEY,
+    session_id       UUID NOT NULL REFERENCES chat_sessions(session_id) ON DELETE CASCADE,
+    up_to_message_id BIGINT NOT NULL,
+    summary          TEXT NOT NULL,
+    tokens_in        INTEGER,
+    tokens_out       INTEGER,
+    created_at       TIMESTAMPTZ NOT NULL DEFAULT NOW()
+);
+
+CREATE INDEX IF NOT EXISTS chat_summaries_session_idx
+    ON chat_summaries(session_id, up_to_message_id);
+
+-- Tenant-isolated response cache (unused while CHAT_RESPONSE_CACHE=false; kept
+-- here so a future tenant-aware cache stays inside the tenant DB).
+CREATE TABLE IF NOT EXISTS chat_response_cache (
+    cache_id        BIGSERIAL PRIMARY KEY,
+    query_hash      TEXT UNIQUE NOT NULL,
+    query_embedding vector(384),
+    response        TEXT NOT NULL,
+    provider        TEXT,
+    hit_count       INTEGER NOT NULL DEFAULT 0,
+    created_at      TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+    last_hit_at     TIMESTAMPTZ
+);
+
+CREATE INDEX IF NOT EXISTS chat_response_cache_embedding_idx
+    ON chat_response_cache USING hnsw (query_embedding vector_cosine_ops);
+
+CREATE OR REPLACE VIEW v_chat_usage_daily AS
+SELECT
+    s.owner_email,
+    DATE(m.created_at) AS day,
+    m.provider,
+    COUNT(*) FILTER (WHERE m.role = 'user') AS user_messages,
+    COUNT(*) FILTER (WHERE m.role = 'assistant') AS assistant_messages,
+    COALESCE(SUM(m.tokens_in), 0) AS tokens_in,
+    COALESCE(SUM(m.tokens_out), 0) AS tokens_out,
+    COALESCE(SUM(m.latency_ms), 0) AS total_latency_ms
+FROM chat_messages m
+JOIN chat_sessions s ON m.session_id = s.session_id
+GROUP BY s.owner_email, DATE(m.created_at), m.provider;

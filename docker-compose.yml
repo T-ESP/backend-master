@@ -1,6 +1,8 @@
 services:
   db:
-    image: postgres:16-alpine
+    # pgvector image so the master DB + every tenant DB can `CREATE EXTENSION vector`
+    # (required by the chatbot RAG corpus + response cache).
+    image: pgvector/pgvector:pg16
     environment:
       POSTGRES_USER: user
       POSTGRES_PASSWORD: pass
@@ -47,8 +49,43 @@ services:
     environment:
       DATABASE_URL: postgres://user:pass@db:5432/stocks_master
       JWT_SECRET: zf2nrOa8bEZ4QH1wioy5N0VJj9sevIG3BApqCSKTDgmRYldh7F6UuMPxLXtkWc
+      # Where the chat gateway proxies LLM turns.
+      AI_SERVICE_URL: http://ai-service:8001
     ports:
       - "8091:8080"
+    restart: unless-stopped
+
+  # Python AI service: ML batch jobs (Prophet, anomalies, ...) + the chatbot
+  # engine (LLM / RAG / tools). Connects to the master DB for the shared RAG
+  # corpus; chat conversations live in the per-tenant DBs (written by the Rust
+  # gateway). Verify-profile flags keep startup light (no model downloads).
+  ai-service:
+    build: ./backend-dev/ai-service
+    depends_on:
+      migrate:
+        condition: service_completed_successfully
+    environment:
+      DATABASE_URL: postgres://user:pass@db:5432/stocks_master
+      STOCKS_API_URL: http://web:8080
+      AI_SERVICE_PORT: "8001"
+      LLM_PROVIDER: "auto"
+      MISTRAL_API_KEY: "${MISTRAL_API_KEY:-}"
+      GROQ_API_KEY: "${GROQ_API_KEY:-}"
+      # Verify profile: skip the ~1-2 GB model pulls and the per-tenant ML cron.
+      LOCAL_LLM_AUTO_DOWNLOAD: "false"
+      RAG_INDEX_ON_STARTUP: "false"
+      CHAT_RESPONSE_CACHE: "false"
+      RUN_ON_STARTUP: "false"
+      EMBED_MODEL: "sentence-transformers/paraphrase-multilingual-MiniLM-L12-v2"
+      RAG_CORPUS_PATHS: "/app/corpus"
+      CHAT_DEFAULT_LANG: "fr"
+    ports:
+      - "8001:8001"
+    volumes:
+      - ai_models:/app/saved_models
+      - llm_models:/app/llm_models
+      - embed_cache:/app/embed_cache
+      - ./docs:/app/corpus/docs:ro
     restart: unless-stopped
 
   pgadmin:
@@ -67,3 +104,6 @@ services:
 volumes:
   db_data:
   pgadmin_data:
+  ai_models:
+  llm_models:
+  embed_cache:

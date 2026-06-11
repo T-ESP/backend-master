@@ -15,3 +15,7 @@ mistralai==1.5.1
 groq==0.13.0
 llama-cpp-python==0.3.2
 huggingface-hub==0.27.0
+
+# Server + tests
+gunicorn
+pytest

@@ -80,15 +80,17 @@ def chat_turn() -> Response:
         return jsonify({"error": "user_message is required"}), 400
 
     user_jwt = body.get("user_jwt") or ""
-    user_id = int(body.get("user_id") or 0)
     session_id = str(body.get("session_id") or "")
+    commerce_id = str(body.get("commerce_id") or "")
+    slug = str(body.get("slug") or "")
     provider_pref = body.get("provider")
     proactive_summary = body.get("proactive_summary")
 
     history_payload = body.get("history") or []
     history = [_msg_from_payload(p) for p in history_payload]
 
-    ctx = ToolContext(user_jwt=user_jwt, user_id=user_id, session_id=session_id)
+    ctx = ToolContext(user_jwt=user_jwt, session_id=session_id,
+                      commerce_id=commerce_id, slug=slug)
 
     try:
         result = run_turn(
@@ -144,12 +146,14 @@ def chat_turn_stream() -> Response:
         return jsonify({"error": "user_message is required"}), 400
 
     user_jwt = body.get("user_jwt") or ""
-    user_id = int(body.get("user_id") or 0)
     session_id = str(body.get("session_id") or "")
+    commerce_id = str(body.get("commerce_id") or "")
+    slug = str(body.get("slug") or "")
     provider_pref = body.get("provider")
     proactive_summary = body.get("proactive_summary")
     history = [_msg_from_payload(p) for p in (body.get("history") or [])]
-    ctx = ToolContext(user_jwt=user_jwt, user_id=user_id, session_id=session_id)
+    ctx = ToolContext(user_jwt=user_jwt, session_id=session_id,
+                      commerce_id=commerce_id, slug=slug)
 
     def _sse(event: str, data: dict) -> str:
         return f"event: {event}\ndata: {json.dumps(data, ensure_ascii=False)}\n\n"
@@ -227,8 +231,9 @@ def chat_execute_tool() -> Response:
         return jsonify({"ok": False, "error": "tool_name requis"}), 400
     ctx = ToolContext(
         user_jwt=body.get("user_jwt") or "",
-        user_id=int(body.get("user_id") or 0),
         session_id=str(body.get("session_id") or ""),
+        commerce_id=str(body.get("commerce_id") or ""),
+        slug=str(body.get("slug") or ""),
     )
     try:
         result = _exec(tool_name, tool_args, ctx)
@@ -250,8 +255,9 @@ def chat_briefing() -> Response:
     body = request.get_json(silent=True) or {}
     ctx = ToolContext(
         user_jwt=body.get("user_jwt") or "",
-        user_id=int(body.get("user_id") or 0),
         session_id=str(body.get("session_id") or ""),
+        commerce_id=str(body.get("commerce_id") or ""),
+        slug=str(body.get("slug") or ""),
     )
     try:
         return jsonify(build_briefing(ctx))

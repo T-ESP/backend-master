@@ -56,6 +56,7 @@ async fn main() -> Result<()> {
         .nest("/api/:commerce_id/kpis", features::global_kpis::router::global_kpis_routes())
         .nest("/api/:commerce_id/restocks", features::restocks::router::restock_routes())
         .nest("/api/:commerce_id/loyalty", features::loyalty::router::loyalty_routes())
+        .nest("/api/:commerce_id/chat", features::chat::router::chat_routes())
         .layer(from_fn_with_state(tenant_pool_manager, resolve_tenant_pool))
         .layer(from_fn(features::auth::middleware::require_auth));
 
