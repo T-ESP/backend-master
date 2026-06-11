@@ -9,6 +9,7 @@ Features:
 - Model caching for efficiency
 """
 
+import os
 import pickle
 import logging
 from pathlib import Path
@@ -47,7 +48,7 @@ class PriceSuggester:
             cache_days: Days before model needs retraining
             min_confidence: Minimum confidence threshold for suggestions
         """
-        self.model_dir = Path(model_dir)
+        self.model_dir = Path(os.getenv("AI_MODEL_DIR") or model_dir)
         self.model_dir.mkdir(parents=True, exist_ok=True)
         self.model_path = self.model_dir / "price_suggester_model.pkl"
         self.cache_days = cache_days

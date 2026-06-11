@@ -12,7 +12,9 @@ from pathlib import Path
 from typing import Iterable, List
 
 from utils.logger import get_logger
-from database.connection import get_db_connection
+# RAG corpus lives in the master DB; pin indexing/retrieval to it (the shared
+# pool gets switched per-tenant during ML runs).
+from database.connection import get_master_db_connection as get_db_connection
 
 from .chunker import Chunk, chunk_markdown
 from .embedder import get_embedder, EMBED_DIM

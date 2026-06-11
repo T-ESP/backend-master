@@ -13,6 +13,8 @@ Default: Daily at 2 AM
 
 import os
 import time
+import psycopg2
+from urllib.parse import urlparse, urlunparse
 from datetime import datetime
 from concurrent.futures import ThreadPoolExecutor, as_completed
 from typing import List, Dict, Any
@@ -226,6 +228,74 @@ def run_all_jobs() -> Dict[str, Any]:
     return _last_run_metrics
 
 
+# ---------------------------------------------------------------------------
+# Multi-tenant orchestration
+# ---------------------------------------------------------------------------
+# The ML handlers read/write via the shared connection pool. To run them for
+# every tenant we point that pool at each ``tenant_<slug>`` database in turn
+# (and namespace cached models per tenant via AI_MODEL_DIR) so results land in
+# the right tenant's tables. RAG retrieval stays pinned to the master DB.
+
+def _master_dsn() -> str:
+    return os.getenv("DATABASE_URL", "postgres://user:pass@db:5432/stocks_master")
+
+
+def list_active_tenants():
+    """Return [(slug, db_name), ...] for active commerces from the master DB."""
+    conn = psycopg2.connect(_master_dsn())
+    try:
+        with conn.cursor() as cur:
+            cur.execute(
+                "SELECT slug, db_name FROM commerces WHERE status = 'active' ORDER BY slug"
+            )
+            return cur.fetchall()
+    finally:
+        conn.close()
+
+
+def _tenant_dsn(db_name: str) -> str:
+    parsed = urlparse(_master_dsn())
+    return urlunparse(parsed._replace(path=f"/{db_name}"))
+
+
+def run_all_tenants():
+    """Run every ML handler for every active tenant, against that tenant's DB."""
+    from database.connection import reconfigure_pool
+
+    base_model_dir = os.getenv("AI_MODEL_BASE_DIR", "/app/saved_models")
+    try:
+        tenants = list_active_tenants()
+    except Exception as e:
+        logger.error(f"Could not list tenants: {e}", exc_info=True)
+        return {"tenants": {}, "count": 0, "error": str(e)}
+
+    if not tenants:
+        logger.warning("No active tenants found; nothing to run.")
+        return {"tenants": {}, "count": 0}
+
+    results: Dict[str, Any] = {}
+    for slug, db_name in tenants:
+        logger.info("=" * 60)
+        logger.info(f"ML run for tenant '{slug}' ({db_name})")
+        os.environ["AI_MODEL_DIR"] = os.path.join(base_model_dir, slug)
+        try:
+            reconfigure_pool(_tenant_dsn(db_name))
+            results[slug] = run_all_jobs()
+        except Exception as e:
+            logger.error(f"ML run failed for tenant {slug}: {e}", exc_info=True)
+            results[slug] = {"error": str(e)}
+
+    # Restore the shared pool to master and clear the per-tenant model dir.
+    os.environ.pop("AI_MODEL_DIR", None)
+    try:
+        reconfigure_pool(_master_dsn())
+    except Exception as e:
+        logger.warning(f"Could not restore master pool: {e}")
+
+    logger.info(f"Per-tenant ML run complete for {len(tenants)} tenant(s)")
+    return {"tenants": results, "count": len(tenants)}
+
+
 def start_scheduler():
     """Start the APScheduler with configured cron schedule.
     Returns the scheduler instance (BackgroundScheduler) so the HTTP server can run alongside it.
@@ -249,7 +319,7 @@ def start_scheduler():
         day_of_week=parts[4],
     )
 
-    scheduler.add_job(run_all_jobs, trigger)
+    scheduler.add_job(run_all_tenants, trigger)
 
     # Count total handlers
     total_handlers = sum(len(g["handlers"]) for g in HANDLER_GROUPS)
@@ -273,11 +343,10 @@ def start_scheduler():
 
     scheduler.start()
 
-    # Run all jobs immediately on startup if configured
+    # Run all jobs for every tenant immediately on startup if configured
     if RUN_ON_STARTUP:
-        _wait_for_seed_data()
-        logger.info("Running all jobs on startup...")
-        run_all_jobs()
+        logger.info("Running all jobs for all tenants on startup...")
+        run_all_tenants()
 
     return scheduler
 

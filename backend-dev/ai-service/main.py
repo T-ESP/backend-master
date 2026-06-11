@@ -1,7 +1,7 @@
 ﻿import os
 import threading
 from flask import Flask, jsonify
-from scheduler import start_scheduler, run_all_jobs, get_metrics
+from scheduler import start_scheduler, run_all_tenants, get_metrics
 from database.connection import check_database_health, close_pool
 from utils.logger import get_logger
 
@@ -52,7 +52,7 @@ def trigger_run():
                 except Exception as e:
                     logger.warning("Could not unload local LLM before cron: %s", e)
 
-                run_all_jobs()
+                run_all_tenants()
             finally:
                 _is_running = False
 

@@ -9,6 +9,7 @@ Features:
 - Detailed anomaly scoring
 """
 
+import os
 import pickle
 import logging
 from pathlib import Path
@@ -46,7 +47,7 @@ class SalesAnomalyDetector:
             cache_days: Days before model needs retraining
             contamination: Expected proportion of anomalies (0.01 to 0.5)
         """
-        self.model_dir = Path(model_dir)
+        self.model_dir = Path(os.getenv("AI_MODEL_DIR") or model_dir)
         self.model_dir.mkdir(parents=True, exist_ok=True)
         self.model_path = self.model_dir / "sales_anomaly_model.pkl"
         self.cache_days = cache_days

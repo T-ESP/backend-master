@@ -6,6 +6,7 @@ seasonality detection (weekly, yearly) and generates stock recommendations.
 """
 
 from datetime import datetime, timedelta
+import os
 from pathlib import Path
 from typing import Optional, Dict, Any, List
 import pickle
@@ -30,7 +31,7 @@ class DemandForecaster:
     """
 
     def __init__(self, model_dir: str = "/app/saved_models", cache_days: int = 7):
-        self.model_dir = Path(model_dir)
+        self.model_dir = Path(os.getenv("AI_MODEL_DIR") or model_dir)
         self.model_dir.mkdir(parents=True, exist_ok=True)
         self.cache_days = cache_days
 

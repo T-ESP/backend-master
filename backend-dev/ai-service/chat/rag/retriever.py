@@ -18,7 +18,9 @@ from dataclasses import dataclass
 from typing import List
 
 from utils.logger import get_logger
-from database.connection import get_db_connection
+# RAG corpus lives in the master DB; pin to it so an in-progress per-tenant ML
+# run (which switches the shared pool) can't redirect retrieval to a tenant DB.
+from database.connection import get_master_db_connection as get_db_connection
 
 from .embedder import get_embedder
 
