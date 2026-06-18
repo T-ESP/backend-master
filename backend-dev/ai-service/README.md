@@ -156,7 +156,8 @@ C   CX (Bulk)   CY (Simple)  CZ (Discontinue?)
 
 **Environment Variables**:
 ```env
-DATABASE_URL=postgres://user:pass@db:5432/stocks
+POSTGRES_PASSWORD=<set-in-your-environment>
+DATABASE_URL=postgres://user:${POSTGRES_PASSWORD}@db:5432/stocks
 CRON_SCHEDULE=0 2 * * *   # Daily at 2 AM
 ```
 

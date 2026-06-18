@@ -237,7 +237,7 @@ def run_all_jobs() -> Dict[str, Any]:
 # the right tenant's tables. RAG retrieval stays pinned to the master DB.
 
 def _master_dsn() -> str:
-    return os.getenv("DATABASE_URL", "postgres://user:pass@db:5432/stocks_master")
+    return os.environ["DATABASE_URL"]
 
 
 def list_active_tenants():

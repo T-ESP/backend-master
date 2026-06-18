@@ -21,7 +21,7 @@ load_dotenv()
 
 logger = logging.getLogger(__name__)
 
-DATABASE_URL = os.getenv("DATABASE_URL", "postgres://user:pass@db:5432/stocks")
+DATABASE_URL = os.environ["DATABASE_URL"]
 
 # Connection pool configuration
 MIN_CONNECTIONS = 1
