@@ -1,4 +1,5 @@
 pub mod auth;
+pub mod discounts;
 pub mod tenants;
 pub mod products;
 pub mod suppliers;

@@ -11,6 +11,7 @@ pub struct OrderResponse {
     pub order_date: DateTime<Utc>,
     pub status: String,
     pub amount: Decimal,
+    pub discount_amount: Decimal,
     pub created_at: DateTime<Utc>,
     pub updated_at: DateTime<Utc>,
 }
@@ -23,6 +24,7 @@ impl OrderResponse {
             order_date: row.get("order_date_ord"),
             status: row.get("status_ord"),
             amount: row.get("amount_ord"),
+            discount_amount: row.try_get("discount_amount_ord").unwrap_or(Decimal::ZERO),
             created_at: row.get("created_at"),
             updated_at: row.get("updated_at"),
         }
@@ -34,6 +36,7 @@ pub struct CreateOrderRequest {
     pub user_id: i32,
     pub status: String,
     pub line_items: Vec<CreateLineItemRequest>,
+    pub discount_ids: Option<Vec<i32>>,
 }
 
 #[derive(Debug, Deserialize, ToSchema)]
@@ -74,6 +77,7 @@ pub struct OrderWithItemsResponse {
     pub order_date: DateTime<Utc>,
     pub status: String,
     pub amount: Decimal,
+    pub discount_amount: Decimal,
     pub line_items: Vec<LineItemResponse>,
     pub created_at: DateTime<Utc>,
     pub updated_at: DateTime<Utc>,

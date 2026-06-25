@@ -14,6 +14,8 @@ use crate::common::error_codes;
 use super::dto::{CreateOrderRequest, UpdateOrderRequest, OrderQueryParams, OrderResponse, LineItemResponse, OrderStatsResponse};
 use super::services::OrderService;
 use crate::features::loyalty::services::LoyaltyService;
+use crate::features::discounts::services::DiscountService;
+use crate::features::discounts::dto::CheckLineItem;
 
 /// GET /api/orders - Get all orders with optional filtering
 #[utoipa::path(
@@ -163,16 +165,58 @@ pub async fn create_order(
         total_amount += line_total;
     }
 
+    // Build check_items with real line totals for discount evaluation
+    let check_items: Vec<CheckLineItem> = {
+        let mut items = Vec::new();
+        for li in &request.line_items {
+            let row = sqlx::query(
+                "SELECT COALESCE(pp.price_prp, p.buying_price_pro) as unit_price
+                 FROM products_pro p
+                 LEFT JOIN productprices_prp pp ON p.id_pro = pp.product_ref_prp
+                 WHERE p.id_pro = $1"
+            )
+            .bind(li.product_id)
+            .fetch_optional(&mut *tx)
+            .await;
+            let unit_price: Decimal = match row {
+                Ok(Some(r)) => r.get("unit_price"),
+                _ => Decimal::ZERO,
+            };
+            items.push(CheckLineItem {
+                product_id: li.product_id,
+                quantity: li.quantity,
+                line_total: unit_price * Decimal::new(li.quantity as i64, 0),
+            });
+        }
+        items
+    };
+
+    let (discount_amount, applied_discounts) = match &request.discount_ids {
+        Some(ids) if !ids.is_empty() => {
+            match DiscountService::compute_order_savings(&pool, ids, &check_items, total_amount).await {
+                Ok(result) => result,
+                Err(e) => {
+                    eprintln!("Discount computation error (non-critical): {e}");
+                    (Decimal::ZERO, Vec::new())
+                }
+            }
+        }
+        _ => (Decimal::ZERO, Vec::new()),
+    };
+
+    let final_amount = total_amount - discount_amount;
+
     // Create the order
     let order_row = match sqlx::query(
-        "INSERT INTO order_ord (user_id_ord, order_date_ord, status_ord, amount_ord)
-         VALUES ($1, $2, $3, $4)
-         RETURNING id_ord, user_id_ord, order_date_ord, status_ord, amount_ord, created_at, updated_at"
+        "INSERT INTO order_ord (user_id_ord, order_date_ord, status_ord, amount_ord, discount_amount_ord)
+         VALUES ($1, $2, $3, $4, $5)
+         RETURNING id_ord, user_id_ord, order_date_ord, status_ord, amount_ord, discount_amount_ord, created_at, updated_at"
     )
     .bind(request.user_id)
     .bind(Utc::now())
     .bind(&request.status)
-    .bind(total_amount)
+    .bind(final_amount)
+    .bind(discount_amount)
     .fetch_one(&mut *tx)
     .await {
         Ok(row) => row,
@@ -270,6 +314,22 @@ pub async fn create_order(
         }
     }
 
+    // Record applied discounts in junction table
+    for applied in &applied_discounts {
+        if let Err(e) = sqlx::query(
+            "INSERT INTO order_discounts_odc (order_id_odc, discount_id_odc, saving_amount_odc)
+             VALUES ($1, $2, $3)
+             ON CONFLICT DO NOTHING"
+        )
+        .bind(order_id)
+        .bind(applied.id)
+        .bind(applied.saving_amount)
+        .execute(&mut *tx)
+        .await {
+            eprintln!("Discount junction insert error (non-critical): {e}");
+        }
+    }
+
     if let Err(e) = tx.commit().await {
         eprintln!("Transaction commit error: {}", e);
         return (
@@ -281,7 +341,7 @@ pub async fn create_order(
         ).into_response();
     }
 
-    if let Err(e) = LoyaltyService::award_points(&pool, request.user_id, order_id, total_amount).await {
+    if let Err(e) = LoyaltyService::award_points(&pool, request.user_id, order_id, final_amount).await {
         eprintln!("Loyalty points error (non-critical): {}", e);
     }
 
