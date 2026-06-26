@@ -72,6 +72,16 @@ try:
 except Exception as e:
     logger.error("Failed to register chat blueprint: %s", e)
 
+# ---------------------------------------------------------------------------
+# Reporting blueprint
+# ---------------------------------------------------------------------------
+try:
+    from reporting.routes import bp as report_bp
+    app.register_blueprint(report_bp)
+    logger.info("Reporting blueprint registered")
+except Exception as e:
+    logger.error("Failed to register reporting blueprint: %s", e)
+
 
 def _index_rag_at_startup() -> None:
     """Run the RAG indexer on startup if configured.

@@ -46,6 +46,13 @@ PARALLEL_EXECUTION = os.getenv("PARALLEL_EXECUTION", "true").lower() == "true"
 MAX_WORKERS = int(os.getenv("MAX_WORKERS", "4"))
 RUN_ON_STARTUP = os.getenv("RUN_ON_STARTUP", "true").lower() == "true"
 
+# Report schedules — configurable via env vars
+# Defaults: daily at 23:00, weekly Monday 08:00, monthly 1st at 09:00
+REPORT_DAILY_CRON   = os.getenv("REPORT_DAILY_CRON",   "0 23 * * *")
+REPORT_WEEKLY_CRON  = os.getenv("REPORT_WEEKLY_CRON",  "0 8 * * 1")
+REPORT_MONTHLY_CRON = os.getenv("REPORT_MONTHLY_CRON", "0 9 1 * *")
+REPORTS_ENABLED     = os.getenv("REPORTS_ENABLED", "true").lower() == "true"
+
 # Handler groups - handlers in the same group can run in parallel
 # Groups are executed sequentially
 HANDLER_GROUPS = [
@@ -296,6 +303,17 @@ def run_all_tenants():
     return {"tenants": results, "count": len(tenants)}
 
 
+def _cron_trigger(cron_str: str) -> CronTrigger:
+    parts = cron_str.split()
+    return CronTrigger(
+        minute=parts[0],
+        hour=parts[1],
+        day=parts[2],
+        month=parts[3],
+        day_of_week=parts[4],
+    )
+
+
 def start_scheduler():
     """Start the APScheduler with configured cron schedule.
     Returns the scheduler instance (BackgroundScheduler) so the HTTP server can run alongside it.
@@ -310,28 +328,33 @@ def start_scheduler():
 
     scheduler = BackgroundScheduler()
 
-    parts = CRON_SCHEDULE.split()
-    trigger = CronTrigger(
-        minute=parts[0],
-        hour=parts[1],
-        day=parts[2],
-        month=parts[3],
-        day_of_week=parts[4],
-    )
+    # ML jobs
+    scheduler.add_job(run_all_tenants, _cron_trigger(CRON_SCHEDULE), id="ml_all_tenants")
 
-    scheduler.add_job(run_all_tenants, trigger)
+    # Report jobs
+    if REPORTS_ENABLED:
+        from reporting.scheduler_jobs import run_daily_reports, run_weekly_reports, run_monthly_reports
+        scheduler.add_job(run_daily_reports,   _cron_trigger(REPORT_DAILY_CRON),   id="report_daily")
+        scheduler.add_job(run_weekly_reports,  _cron_trigger(REPORT_WEEKLY_CRON),  id="report_weekly")
+        scheduler.add_job(run_monthly_reports, _cron_trigger(REPORT_MONTHLY_CRON), id="report_monthly")
 
     # Count total handlers
     total_handlers = sum(len(g["handlers"]) for g in HANDLER_GROUPS)
 
     logger.info("=" * 60)
     logger.info("AI Service Scheduler Started")
-    logger.info(f"Cron schedule: {CRON_SCHEDULE}")
-    logger.info(f"Run on startup: {RUN_ON_STARTUP}")
-    logger.info(f"Parallel execution: {PARALLEL_EXECUTION}")
-    logger.info(f"Max workers: {MAX_WORKERS}")
-    logger.info(f"Handler groups: {len(HANDLER_GROUPS)}")
-    logger.info(f"Total handlers: {total_handlers}")
+    logger.info(f"ML cron schedule:     {CRON_SCHEDULE}")
+    logger.info(f"Run on startup:       {RUN_ON_STARTUP}")
+    logger.info(f"Parallel execution:   {PARALLEL_EXECUTION}")
+    logger.info(f"Max workers:          {MAX_WORKERS}")
+    logger.info(f"Handler groups:       {len(HANDLER_GROUPS)}")
+    logger.info(f"Total handlers:       {total_handlers}")
+    if REPORTS_ENABLED:
+        logger.info(f"Reports daily:        {REPORT_DAILY_CRON}")
+        logger.info(f"Reports weekly:       {REPORT_WEEKLY_CRON}")
+        logger.info(f"Reports monthly:      {REPORT_MONTHLY_CRON}")
+    else:
+        logger.info("Reports:              disabled (REPORTS_ENABLED=false)")
 
     for group in HANDLER_GROUPS:
         mode = "parallel" if group["parallel"] else "sequential"

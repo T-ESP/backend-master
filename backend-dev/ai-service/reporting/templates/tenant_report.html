@@ -1,0 +1,245 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<title>{{ report_type|capitalize }} Report — {{ commerce.name }}</title>
+<style>
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+  body { font-family: Helvetica, Arial, sans-serif; font-size: 11px; color: #1a1a2e; line-height: 1.45; }
+
+  /* ---- Header ---- */
+  .header { background: #1a1a2e; color: #fff; padding: 18px 20px 14px; border-radius: 4px 4px 0 0; }
+  .header h1 { font-size: 20px; font-weight: 700; letter-spacing: 0.5px; }
+  .header .subtitle { font-size: 11px; color: #a0aec0; margin-top: 3px; }
+  .header .meta { font-size: 10px; color: #718096; margin-top: 6px; }
+
+  /* ---- KPI cards ---- */
+  .kpi-row { display: flex; gap: 10px; margin: 14px 0; }
+  .kpi { flex: 1; background: #f7f8fc; border: 1px solid #e2e8f0; border-radius: 6px;
+         padding: 10px 12px; text-align: center; }
+  .kpi .value { font-size: 18px; font-weight: 700; color: #1a1a2e; }
+  .kpi .label { font-size: 9px; color: #718096; text-transform: uppercase; letter-spacing: 0.5px; margin-top: 3px; }
+  .kpi.accent .value { color: #2b6cb0; }
+  .kpi.warn   .value { color: #c05621; }
+  .kpi.ok     .value { color: #276749; }
+
+  /* ---- Sections ---- */
+  .section { margin: 18px 0; }
+  .section-title {
+    font-size: 13px; font-weight: 700; color: #fff;
+    background: #2d3748; padding: 6px 10px; border-radius: 4px;
+    margin-bottom: 10px;
+  }
+
+  /* ---- Tables ---- */
+  table { width: 100%; border-collapse: collapse; font-size: 10px; }
+  th { background: #edf2f7; color: #4a5568; font-weight: 600; padding: 5px 8px;
+       text-align: left; border-bottom: 2px solid #cbd5e0; }
+  td { padding: 5px 8px; border-bottom: 1px solid #e2e8f0; }
+  tr:last-child td { border-bottom: none; }
+  .right { text-align: right; }
+
+  /* ---- Tags ---- */
+  .tag { display: inline-block; padding: 1px 6px; border-radius: 10px; font-size: 9px; font-weight: 600; }
+  .tag-urgent  { background: #fff5f5; color: #c53030; border: 1px solid #fc8181; }
+  .tag-high    { background: #fffaf0; color: #c05621; border: 1px solid #f6ad55; }
+  .tag-medium  { background: #fffff0; color: #975a16; border: 1px solid #ecc94b; }
+  .tag-ok      { background: #f0fff4; color: #276749; border: 1px solid #68d391; }
+
+  /* ---- ABC badges ---- */
+  .abc { display: inline-block; width: 22px; height: 22px; border-radius: 50%;
+         text-align: center; line-height: 22px; font-weight: 700; font-size: 11px; }
+  .abc-A { background: #bee3f8; color: #2b6cb0; }
+  .abc-B { background: #c6f6d5; color: #276749; }
+  .abc-C { background: #e2e8f0; color: #4a5568; }
+
+  /* ---- Two columns ---- */
+  .col2 { display: flex; gap: 14px; }
+  .col2 > div { flex: 1; }
+
+  /* ---- Footer ---- */
+  .footer { margin-top: 24px; font-size: 9px; color: #a0aec0;
+            border-top: 1px solid #e2e8f0; padding-top: 8px; text-align: center; }
+
+  .empty { color: #a0aec0; font-style: italic; font-size: 10px; padding: 6px 0; }
+</style>
+</head>
+<body>
+
+<!-- ======== HEADER ======== -->
+<div class="header">
+  <h1>{{ commerce.name }} — {{ report_type|capitalize }} Report</h1>
+  <div class="subtitle">Period: {{ period.label }}</div>
+  <div class="meta">Generated {{ generated_at }} &nbsp;|&nbsp; {{ commerce.email }}</div>
+</div>
+
+<!-- ======== KPI CARDS ======== -->
+<div class="kpi-row">
+  <div class="kpi accent">
+    <div class="value">{{ sales.total_revenue | eur }}</div>
+    <div class="label">Revenue</div>
+  </div>
+  <div class="kpi">
+    <div class="value">{{ sales.total_orders | num }}</div>
+    <div class="label">Orders</div>
+  </div>
+  <div class="kpi">
+    <div class="value">{{ sales.avg_order_value | eur }}</div>
+    <div class="label">Avg Order Value</div>
+  </div>
+  <div class="kpi {% if stock.out_of_stock > 0 %}warn{% else %}ok{% endif %}">
+    <div class="value">{{ stock.out_of_stock | num }}</div>
+    <div class="label">Out of Stock</div>
+  </div>
+  <div class="kpi {% if notifications.new_in_period.critical > 0 %}warn{% elif notifications.new_in_period.high > 0 %}warn{% else %}ok{% endif %}">
+    <div class="value">{{ notifications.new_in_period.total | num }}</div>
+    <div class="label">New Alerts</div>
+  </div>
+</div>
+
+<!-- ======== SALES ======== -->
+<div class="section">
+  <div class="section-title">📦 Sales Summary</div>
+  <div class="col2">
+    <div>
+      <table>
+        <tr><td>Completed orders</td><td class="right"><strong>{{ sales.completed | num }}</strong></td></tr>
+        <tr><td>Pending orders</td><td class="right">{{ sales.pending | num }}</td></tr>
+        <tr><td>Cancelled orders</td><td class="right">{{ sales.cancelled | num }}</td></tr>
+      </table>
+    </div>
+    <div>
+      {% if sales.top_products %}
+      <table>
+        <thead>
+          <tr><th>Product</th><th>Category</th><th class="right">Units</th><th class="right">Revenue</th></tr>
+        </thead>
+        <tbody>
+          {% for p in sales.top_products %}
+          <tr>
+            <td>{{ p.name }}</td>
+            <td>{{ p.category }}</td>
+            <td class="right">{{ p.units_sold | num }}</td>
+            <td class="right">{{ p.revenue | eur }}</td>
+          </tr>
+          {% endfor %}
+        </tbody>
+      </table>
+      {% else %}
+      <p class="empty">No orders recorded in this period.</p>
+      {% endif %}
+    </div>
+  </div>
+</div>
+
+<!-- ======== STOCK ======== -->
+<div class="section">
+  <div class="section-title">🏪 Stock & Inventory</div>
+  <div class="col2">
+    <div>
+      <table>
+        <tr><td>Out of stock</td><td class="right"><strong style="color:#c53030">{{ stock.out_of_stock | num }}</strong></td></tr>
+        <tr><td>Low stock (&lt;10 units)</td><td class="right"><strong style="color:#c05621">{{ stock.low_stock | num }}</strong></td></tr>
+      </table>
+    </div>
+    <div>
+      {% if stock.urgent_restocks %}
+      <table>
+        <thead>
+          <tr><th>Product</th><th>Stock</th><th>Days Left</th><th>Urgency</th></tr>
+        </thead>
+        <tbody>
+          {% for r in stock.urgent_restocks %}
+          <tr>
+            <td>{{ r.product }}</td>
+            <td class="right">{{ r.current_stock }}</td>
+            <td class="right">{{ r.days_to_stockout }}</td>
+            <td>
+              <span class="tag tag-{{ r.urgency|lower }}">{{ r.urgency }}</span>
+            </td>
+          </tr>
+          {% endfor %}
+        </tbody>
+      </table>
+      {% else %}
+      <p class="empty">No urgent restocks required.</p>
+      {% endif %}
+    </div>
+  </div>
+</div>
+
+<!-- ======== AI INSIGHTS ======== -->
+<div class="section">
+  <div class="section-title">🤖 AI & ML Insights</div>
+  <div class="col2">
+    <div>
+      <table>
+        <tr>
+          <td>Price anomalies detected</td>
+          <td class="right"><strong>{{ insights.price_anomalies.detected }}</strong> / {{ insights.price_anomalies.checked }} checked</td>
+        </tr>
+        <tr>
+          <td>Sales anomalies detected</td>
+          <td class="right"><strong>{{ insights.sales_anomalies.detected }}</strong> / {{ insights.sales_anomalies.checked }} checked</td>
+        </tr>
+      </table>
+
+      {% if insights.abc_distribution %}
+      <br>
+      <table>
+        <thead><tr><th>ABC Class</th><th class="right">Products</th></tr></thead>
+        <tbody>
+          {% for cls, cnt in insights.abc_distribution.items() %}
+          <tr>
+            <td><span class="abc abc-{{ cls }}">{{ cls }}</span> Class</td>
+            <td class="right">{{ cnt }}</td>
+          </tr>
+          {% endfor %}
+        </tbody>
+      </table>
+      {% endif %}
+    </div>
+    <div>
+      {% if insights.top_price_suggestions %}
+      <table>
+        <thead>
+          <tr><th>Product</th><th class="right">Current</th><th class="right">Suggested</th><th class="right">Conf.</th></tr>
+        </thead>
+        <tbody>
+          {% for s in insights.top_price_suggestions %}
+          <tr>
+            <td>{{ s.product }}</td>
+            <td class="right">{{ s.current_price | eur }}</td>
+            <td class="right">{{ s.suggested_price | eur }}</td>
+            <td class="right">{{ (s.confidence * 100) | round(0) | int }}%</td>
+          </tr>
+          {% endfor %}
+        </tbody>
+      </table>
+      {% else %}
+      <p class="empty">No price suggestions for this period.</p>
+      {% endif %}
+    </div>
+  </div>
+</div>
+
+<!-- ======== NOTIFICATIONS ======== -->
+<div class="section">
+  <div class="section-title">🔔 Notifications</div>
+  <table>
+    <tr><td>New alerts in period</td><td class="right">{{ notifications.new_in_period.alerts | num }}</td></tr>
+    <tr><td>New suggestions in period</td><td class="right">{{ notifications.new_in_period.suggestions | num }}</td></tr>
+    <tr><td>High severity</td><td class="right"><strong style="color:#c05621">{{ notifications.new_in_period.high | num }}</strong></td></tr>
+    <tr><td>Critical severity</td><td class="right"><strong style="color:#c53030">{{ notifications.new_in_period.critical | num }}</strong></td></tr>
+    <tr><td>Resolved / dismissed in period</td><td class="right" style="color:#276749">{{ notifications.resolved_in_period | num }}</td></tr>
+    <tr><td>Total unacknowledged (all time)</td><td class="right"><strong>{{ notifications.total_unacknowledged | num }}</strong></td></tr>
+  </table>
+</div>
+
+<!-- ======== FOOTER ======== -->
+<div class="footer">
+  Automatically generated by the AI Reporting Service &nbsp;|&nbsp; {{ generated_at }}
+</div>
+
+</body>
+</html>

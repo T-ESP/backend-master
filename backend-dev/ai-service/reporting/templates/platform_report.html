@@ -1,0 +1,128 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<title>Platform {{ report_type|capitalize }} Report</title>
+<style>
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+  body { font-family: Helvetica, Arial, sans-serif; font-size: 11px; color: #1a1a2e; line-height: 1.45; }
+
+  .header { background: #0d1b2a; color: #fff; padding: 18px 20px 14px; border-radius: 4px 4px 0 0; }
+  .header h1 { font-size: 20px; font-weight: 700; }
+  .header .badge { display: inline-block; background: #2b6cb0; color: #fff;
+                   font-size: 9px; padding: 2px 8px; border-radius: 10px; margin-left: 8px;
+                   vertical-align: middle; letter-spacing: 0.5px; }
+  .header .subtitle { font-size: 11px; color: #a0aec0; margin-top: 4px; }
+  .header .meta { font-size: 10px; color: #718096; margin-top: 5px; }
+
+  .kpi-row { display: flex; gap: 10px; margin: 14px 0; }
+  .kpi { flex: 1; background: #f7f8fc; border: 1px solid #e2e8f0; border-radius: 6px;
+         padding: 10px 12px; text-align: center; }
+  .kpi .value { font-size: 20px; font-weight: 700; color: #1a1a2e; }
+  .kpi .label { font-size: 9px; color: #718096; text-transform: uppercase; letter-spacing: 0.5px; margin-top: 3px; }
+  .kpi.accent .value { color: #2b6cb0; }
+
+  .section { margin: 18px 0; }
+  .section-title {
+    font-size: 13px; font-weight: 700; color: #fff;
+    background: #2d3748; padding: 6px 10px; border-radius: 4px;
+    margin-bottom: 10px;
+  }
+
+  table { width: 100%; border-collapse: collapse; font-size: 10px; }
+  th { background: #edf2f7; color: #4a5568; font-weight: 600; padding: 5px 8px;
+       text-align: left; border-bottom: 2px solid #cbd5e0; }
+  td { padding: 5px 8px; border-bottom: 1px solid #e2e8f0; }
+  tr:last-child td { border-bottom: none; }
+  .right { text-align: right; }
+
+  .tag { display: inline-block; padding: 1px 6px; border-radius: 10px; font-size: 9px; font-weight: 600; }
+  .tag-active   { background: #c6f6d5; color: #276749; border: 1px solid #68d391; }
+  .tag-inactive { background: #e2e8f0; color: #718096; border: 1px solid #cbd5e0; }
+
+  .rank-1 { font-weight: 700; color: #2b6cb0; }
+
+  .footer { margin-top: 24px; font-size: 9px; color: #a0aec0;
+            border-top: 1px solid #e2e8f0; padding-top: 8px; text-align: center; }
+  .empty { color: #a0aec0; font-style: italic; font-size: 10px; padding: 6px 0; }
+</style>
+</head>
+<body>
+
+<!-- ======== HEADER ======== -->
+<div class="header">
+  <h1>Platform Report <span class="badge">ADMIN</span></h1>
+  <div class="subtitle">{{ report_type|capitalize }} — {{ period.label }}</div>
+  <div class="meta">Generated {{ generated_at }}</div>
+</div>
+
+<!-- ======== KPI CARDS ======== -->
+<div class="kpi-row">
+  <div class="kpi">
+    <div class="value">{{ platform.active_tenants }}</div>
+    <div class="label">Active Tenants</div>
+  </div>
+  <div class="kpi accent">
+    <div class="value">€{{ "%.0f"|format(platform.total_revenue) }}</div>
+    <div class="label">Total Revenue</div>
+  </div>
+  <div class="kpi">
+    <div class="value">{{ platform.total_orders }}</div>
+    <div class="label">Total Orders</div>
+  </div>
+  <div class="kpi">
+    <div class="value">
+      {% if platform.total_orders > 0 %}
+        €{{ "%.2f"|format(platform.total_revenue / platform.total_orders) }}
+      {% else %}—{% endif %}
+    </div>
+    <div class="label">Avg Order (all tenants)</div>
+  </div>
+</div>
+
+<!-- ======== TENANT BREAKDOWN ======== -->
+<div class="section">
+  <div class="section-title">🏢 Tenant Breakdown</div>
+  {% if tenants %}
+  <table>
+    <thead>
+      <tr>
+        <th>#</th>
+        <th>Commerce</th>
+        <th>Status</th>
+        <th class="right">Orders</th>
+        <th class="right">Revenue</th>
+        <th class="right">Open Alerts</th>
+        <th class="right">Out of Stock</th>
+      </tr>
+    </thead>
+    <tbody>
+      {% for t in tenants %}
+      <tr>
+        <td class="{% if loop.first %}rank-1{% endif %}">{{ loop.index }}</td>
+        <td class="{% if loop.first %}rank-1{% endif %}">{{ t.name }}</td>
+        <td><span class="tag tag-{{ t.status }}">{{ t.status }}</span></td>
+        <td class="right">{{ t.orders }}</td>
+        <td class="right {% if loop.first %}rank-1{% endif %}">€{{ "%.2f"|format(t.revenue) }}</td>
+        <td class="right">
+          {% if t.open_alerts > 0 %}<strong>{{ t.open_alerts }}</strong>{% else %}—{% endif %}
+        </td>
+        <td class="right">
+          {% if t.out_of_stock > 0 %}<strong style="color:#c53030">{{ t.out_of_stock }}</strong>{% else %}—{% endif %}
+        </td>
+      </tr>
+      {% endfor %}
+    </tbody>
+  </table>
+  {% else %}
+  <p class="empty">No active tenants found.</p>
+  {% endif %}
+</div>
+
+<!-- ======== FOOTER ======== -->
+<div class="footer">
+  Platform Admin Report — Confidential &nbsp;|&nbsp; {{ generated_at }}
+</div>
+
+</body>
+</html>
