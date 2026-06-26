@@ -69,6 +69,19 @@ def _tenant_url(ctx: ToolContext, path: str) -> str:
 MAX_LIST_ITEMS = int(os.getenv("CHAT_TOOL_MAX_LIST_ITEMS", "12"))
 
 
+def _parallel(*fns):
+    from concurrent.futures import ThreadPoolExecutor
+    with ThreadPoolExecutor(max_workers=len(fns)) as ex:
+        futures = [ex.submit(fn) for fn in fns]
+        out = []
+        for f in futures:
+            try:
+                out.append(f.result())
+            except Exception:
+                out.append(None)
+        return out
+
+
 def _compress(value: Any, depth: int = 0) -> Any:
     """Réduit récursivement les grosses listes pour ne pas saturer le contexte
     du LLM. Une liste de N>MAX éléments est tronquée à MAX, avec un marqueur
@@ -320,11 +333,10 @@ def _get_top_products(ctx: ToolContext, args: dict) -> ToolResult:
 ))
 def _get_product_detail(ctx: ToolContext, args: dict) -> ToolResult:
     pid = int(args["product_id"])
-    detail = _api_get(ctx, f"/products/{pid}")
-    try:
-        kpis = _api_get(ctx, f"/products/{pid}/kpis/all")
-    except requests.HTTPError:
-        kpis = None
+    detail, kpis = _parallel(
+        lambda: _api_get(ctx, f"/products/{pid}"),
+        lambda: _api_get(ctx, f"/products/{pid}/kpis/all"),
+    )
     return ToolResult(ok=True, data={"product": detail, "kpis": kpis})
 
 
@@ -391,11 +403,10 @@ def _get_product_by_name(ctx: ToolContext, args: dict) -> ToolResult:
     pid = _id(best)
     if not pid:
         return ToolResult(ok=False, error=f"Le produit '{_name(best)}' n'a pas d'identifiant utilisable")
-    detail = _api_get(ctx, f"/products/{pid}")
-    try:
-        kpis = _api_get(ctx, f"/products/{pid}/kpis/all")
-    except requests.HTTPError:
-        kpis = None
+    detail, kpis = _parallel(
+        lambda: _api_get(ctx, f"/products/{pid}"),
+        lambda: _api_get(ctx, f"/products/{pid}/kpis/all"),
+    )
     other_matches = [m for m in matches if _id(m) != pid][:5]
     return ToolResult(ok=True, data={
         "queried_name": name,
@@ -558,12 +569,10 @@ def _get_total_sales(ctx: ToolContext, args: dict) -> ToolResult:
 
     # /sales/total ne donne que le CA. On enrichit avec /kpis/global-performance
     # qui apporte le nombre de commandes, le profit, le panier moyen.
-    try:
-        kpis = _api_get(ctx, "/kpis/global-performance", params=period_params)
-    except requests.HTTPError:
-        kpis = None
-
-    revenue_raw = _api_get(ctx, "/sales/total", params=period_params)
+    kpis, revenue_raw = _parallel(
+        lambda: _api_get(ctx, "/kpis/global-performance", params=period_params),
+        lambda: _api_get(ctx, "/sales/total", params=period_params),
+    )
     revenue = (revenue_raw or {}).get("total_revenue") if isinstance(revenue_raw, dict) else None
 
     summary = {
@@ -699,11 +708,10 @@ def _get_top_product_full(ctx: ToolContext, args: dict) -> ToolResult:
     pid = p0.get("product_id") or p0.get("id")
     if not pid:
         return ToolResult(ok=False, error=f"Pas d'id pour: {p0}")
-    detail = _api_get(ctx, f"/products/{pid}")
-    try:
-        kpis = _api_get(ctx, f"/products/{pid}/kpis/all")
-    except requests.HTTPError:
-        kpis = None
+    detail, kpis = _parallel(
+        lambda: _api_get(ctx, f"/products/{pid}"),
+        lambda: _api_get(ctx, f"/products/{pid}/kpis/all"),
+    )
     return ToolResult(ok=True, data={
         "metric": metric,
         "periode_jours": (top.data or {}).get("periode_jours"),
@@ -792,22 +800,15 @@ def _compare_products(ctx: ToolContext, args: dict) -> ToolResult:
     pb = int(args["product_id_b"])
 
     def fetch(pid: int) -> dict:
-        out: dict = {"id": pid}
-        try:
-            out["product"] = _api_get(ctx, f"/products/{pid}")
-        except requests.HTTPError:
-            out["product"] = None
-        try:
-            out["kpis"] = _api_get(ctx, f"/products/{pid}/kpis/all")
-        except requests.HTTPError:
-            out["kpis"] = None
-        try:
-            out["forecast"] = _api_get(ctx, f"/ai/forecasts/{pid}")
-        except requests.HTTPError:
-            out["forecast"] = None
-        return out
+        product, kpis, forecast = _parallel(
+            lambda: _api_get(ctx, f"/products/{pid}"),
+            lambda: _api_get(ctx, f"/products/{pid}/kpis/all"),
+            lambda: _api_get(ctx, f"/ai/forecasts/{pid}"),
+        )
+        return {"id": pid, "product": product, "kpis": kpis, "forecast": forecast}
 
-    return ToolResult(ok=True, data={"a": fetch(pa), "b": fetch(pb)})
+    a, b = _parallel(lambda: fetch(pa), lambda: fetch(pb))
+    return ToolResult(ok=True, data={"a": a, "b": b})
 
 
 @register(ToolSpec(
@@ -901,10 +902,14 @@ def _get_supplier_ranking(ctx: ToolContext, args: dict) -> ToolResult:
 def _get_daily_action_list(ctx: ToolContext, args: dict) -> ToolResult:
     actions: list[dict] = []
 
-    # Priorité 1 — alertes critiques
-    r = execute_tool("get_alerts", {"severity": "CRITICAL", "limit": 50}, ctx)
-    if r.ok:
-        items = r.data if isinstance(r.data, list) else (r.data or {}).get("alerts", [])
+    r_alerts, r_restocks, r_anomalies = _parallel(
+        lambda: execute_tool("get_alerts", {"severity": "CRITICAL", "limit": 50}, ctx),
+        lambda: execute_tool("get_urgent_restocks", {}, ctx),
+        lambda: execute_tool("get_sales_anomalies", {"limit": 20}, ctx),
+    )
+
+    if r_alerts and r_alerts.ok:
+        items = r_alerts.data if isinstance(r_alerts.data, list) else (r_alerts.data or {}).get("alerts", [])
         if isinstance(items, list) and items:
             actions.append({
                 "priorite": 1,
@@ -917,10 +922,8 @@ def _get_daily_action_list(ctx: ToolContext, args: dict) -> ToolResult:
                 ],
             })
 
-    # Priorité 2 — réappros urgents
-    r = execute_tool("get_urgent_restocks", {}, ctx)
-    if r.ok:
-        items = r.data if isinstance(r.data, list) else (r.data or {}).get("restocks", [])
+    if r_restocks and r_restocks.ok:
+        items = r_restocks.data if isinstance(r_restocks.data, list) else (r_restocks.data or {}).get("restocks", [])
         if isinstance(items, list) and items:
             actions.append({
                 "priorite": 2,
@@ -933,10 +936,8 @@ def _get_daily_action_list(ctx: ToolContext, args: dict) -> ToolResult:
                 ],
             })
 
-    # Priorité 3 — anomalies de ventes
-    r = execute_tool("get_sales_anomalies", {"limit": 20}, ctx)
-    if r.ok:
-        items = r.data if isinstance(r.data, list) else (r.data or {}).get("anomalies", [])
+    if r_anomalies and r_anomalies.ok:
+        items = r_anomalies.data if isinstance(r_anomalies.data, list) else (r_anomalies.data or {}).get("anomalies", [])
         if isinstance(items, list) and items:
             actions.append({
                 "priorite": 3,
