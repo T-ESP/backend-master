@@ -76,6 +76,8 @@ def _repair_mojibake(s: str) -> str:
 # Single shared lock — llama.cpp generation is single-threaded per model.
 _LLAMA_LOCK = threading.Lock()
 
+_GRAMMAR_CACHE: dict[frozenset, Any] = {}
+
 
 TOOL_INSTRUCTION_TEMPLATE = """Tu peux appeler les outils suivants pour obtenir des données fraîches du système de gestion de stock.
 
@@ -220,14 +222,17 @@ class LocalLLMProvider(LLMProvider):
         # natural tendency is to drift.
         gbnf = None
         if tools and _use_grammar():
-            try:
-                from llama_cpp import LlamaGrammar  # type: ignore
-                from .grammar import build_grammar
-                gbnf = LlamaGrammar.from_string(build_grammar(tools))
-            except Exception as e:
-                from utils.logger import get_logger
-                get_logger("chat.llm.local").warning("GBNF grammar load failed (%s); proceeding without", e)
-                gbnf = None
+            cache_key = frozenset(t.name for t in tools)
+            gbnf = _GRAMMAR_CACHE.get(cache_key)
+            if gbnf is None:
+                try:
+                    from llama_cpp import LlamaGrammar  # type: ignore
+                    from .grammar import build_grammar
+                    gbnf = LlamaGrammar.from_string(build_grammar(tools))
+                    _GRAMMAR_CACHE[cache_key] = gbnf
+                except Exception as e:
+                    from utils.logger import get_logger
+                    get_logger("chat.llm.local").warning("GBNF grammar load failed (%s); proceeding without", e)
 
         start = time.time()
         with _LLAMA_LOCK:
