@@ -13,10 +13,12 @@ use crate::common::{
     responses::{ErrorResponse, SuccessResponse},
 };
 use crate::common::security::Claims;
+use crate::features::staff;
 
 use super::{
-    dto::{CreateTenantRequest, UpdateTenantRequest, TenantResponse},
+    dto::{AdminStaffResponse, CreateTenantRequest, UpdateTenantRequest, TenantResponse},
     model::Tenant,
+    router::AdminState,
     service::{self, TenantServiceError},
 };
 
@@ -85,6 +87,22 @@ fn map_tenant_error(error: TenantServiceError) -> Response {
     }
 }
 
+fn require_platform_admin(claims: &Claims) -> Option<Response> {
+    if claims.role != "platform_admin" {
+        return Some(
+            (
+                StatusCode::FORBIDDEN,
+                Json(ErrorResponse::new(
+                    error_codes::FORBIDDEN.to_string(),
+                    "Réservé aux admins plateforme".to_string(),
+                )),
+            )
+                .into_response(),
+        );
+    }
+    None
+}
+
 #[utoipa::path(
     post,
     path = "/admin/tenants",
@@ -98,24 +116,18 @@ fn map_tenant_error(error: TenantServiceError) -> Response {
     )
 )]
 pub async fn create_tenant(
-    State(pool): State<PgPool>,
+    State(state): State<AdminState>,
     Extension(claims): Extension<Claims>,
     Json(payload): Json<CreateTenantRequest>,
 ) -> Response {
-    if claims.role != "platform_admin" {
-        return (
-            StatusCode::FORBIDDEN,
-            Json(ErrorResponse::new(
-                error_codes::FORBIDDEN.to_string(),
-                "Only platform admins can create tenants".to_string(),
-            )),
-        ).into_response();
+    if let Some(forbidden) = require_platform_admin(&claims) {
+        return forbidden;
     }
 
     let database_url = std::env::var("DATABASE_URL").unwrap_or_default();
 
     match service::create_tenant(
-        &pool,
+        &state.pool,
         &database_url,
         payload.name.clone(),
         payload.slug.clone(),
@@ -157,9 +169,9 @@ pub async fn create_tenant(
     )
 )]
 pub async fn get_all_tenants(
-    State(pool): State<PgPool>,
+    State(state): State<AdminState>,
 ) -> Response {
-    match service::get_all_tenants(&pool).await {
+    match service::get_all_tenants(&state.pool).await {
         Ok(tenants) => {
             let response: Vec<TenantResponse> = tenants.into_iter().map(tenant_to_response).collect();
             (
@@ -183,10 +195,10 @@ pub async fn get_all_tenants(
     )
 )]
 pub async fn get_tenant_by_id(
-    State(pool): State<PgPool>,
+    State(state): State<AdminState>,
     Path(id): Path<Uuid>,
 ) -> Response {
-    match service::get_tenant_by_id(&pool, id).await {
+    match service::get_tenant_by_id(&state.pool, id).await {
         Ok(tenant) => (
             StatusCode::OK,
             Json(SuccessResponse::new(tenant_to_response(tenant), "Tenant retrieved".to_string())),
@@ -209,23 +221,17 @@ pub async fn get_tenant_by_id(
     )
 )]
 pub async fn update_tenant(
-    State(pool): State<PgPool>,
+    State(state): State<AdminState>,
     Extension(claims): Extension<Claims>,
     Path(id): Path<Uuid>,
     Json(payload): Json<UpdateTenantRequest>,
 ) -> Response {
-    if claims.role != "platform_admin" {
-        return (
-            StatusCode::FORBIDDEN,
-            Json(ErrorResponse::new(
-                error_codes::FORBIDDEN.to_string(),
-                "Only platform admins can update tenants".to_string(),
-            )),
-        ).into_response();
+    if let Some(forbidden) = require_platform_admin(&claims) {
+        return forbidden;
     }
 
     match service::update_tenant(
-        &pool, id,
+        &state.pool, id,
         payload.name, payload.email, payload.phone,
         payload.address, payload.siret, payload.status,
     ).await {
@@ -249,10 +255,10 @@ pub async fn update_tenant(
     )
 )]
 pub async fn delete_tenant(
-    State(pool): State<PgPool>,
+    State(state): State<AdminState>,
     Path(id): Path<Uuid>,
 ) -> Response {
-    match service::delete_tenant(&pool, id).await {
+    match service::delete_tenant(&state.pool, id).await {
         Ok(()) => (
             StatusCode::OK,
             Json(SuccessResponse::new(
@@ -277,23 +283,17 @@ pub async fn delete_tenant(
     )
 )]
 pub async fn seed_tenant(
-    State(pool): State<PgPool>,
+    State(state): State<AdminState>,
     Extension(claims): Extension<Claims>,
     Path(id): Path<Uuid>,
 ) -> Response {
-    if claims.role != "platform_admin" {
-        return (
-            StatusCode::FORBIDDEN,
-            Json(ErrorResponse::new(
-                error_codes::FORBIDDEN.to_string(),
-                "Only platform admins can seed tenants".to_string(),
-            )),
-        ).into_response();
+    if let Some(forbidden) = require_platform_admin(&claims) {
+        return forbidden;
     }
 
     let database_url = std::env::var("DATABASE_URL").unwrap_or_default();
 
-    match service::seed_tenant(&pool, &database_url, id).await {
+    match service::seed_tenant(&state.pool, &database_url, id).await {
         Ok(()) => (
             StatusCode::OK,
             Json(SuccessResponse::new(
@@ -302,6 +302,145 @@ pub async fn seed_tenant(
             )),
         ).into_response(),
         Err(err) => map_tenant_error(err),
+    }
+}
+
+/// GET /admin/staff — liste tous les employés de tous les commerces, avec leur contexte.
+pub async fn list_all_staff(
+    State(state): State<AdminState>,
+    Extension(claims): Extension<Claims>,
+) -> Response {
+    if let Some(forbidden) = require_platform_admin(&claims) {
+        return forbidden;
+    }
+
+    let tenants = match service::get_all_tenants(&state.pool).await {
+        Ok(tenants) => tenants,
+        Err(err) => return map_tenant_error(err),
+    };
+
+    let mut all_staff: Vec<AdminStaffResponse> = Vec::new();
+
+    for tenant in tenants {
+        let tenant_pool = match state.tenant_pool_manager.get_pool(tenant.id).await {
+            Ok(pool) => pool,
+            Err(_) => continue, // commerce inactif ou base injoignable, on l'ignore
+        };
+
+        if let Ok(staff_list) = staff::services::get_all_staff(&tenant_pool).await {
+            for member in staff_list {
+                all_staff.push(AdminStaffResponse {
+                    commerce_id: tenant.id,
+                    commerce_name: tenant.name.clone(),
+                    staff: member,
+                });
+            }
+        }
+    }
+
+    (
+        StatusCode::OK,
+        Json(SuccessResponse::new(all_staff, "Employés récupérés avec succès".to_string())),
+    ).into_response()
+}
+
+/// GET /admin/tenants/:id/staff — liste les employés d'un commerce précis.
+pub async fn get_tenant_staff(
+    State(state): State<AdminState>,
+    Extension(claims): Extension<Claims>,
+    Path(commerce_id): Path<Uuid>,
+) -> Response {
+    if let Some(forbidden) = require_platform_admin(&claims) {
+        return forbidden;
+    }
+
+    let tenant_pool = match state.tenant_pool_manager.get_pool(commerce_id).await {
+        Ok(pool) => pool,
+        Err(_) => {
+            return (
+                StatusCode::NOT_FOUND,
+                Json(ErrorResponse::new(
+                    error_codes::NOT_FOUND.to_string(),
+                    "Commerce non trouvé ou inactif".to_string(),
+                )),
+            ).into_response();
+        }
+    };
+
+    match staff::services::get_all_staff(&tenant_pool).await {
+        Ok(staff_list) => (
+            StatusCode::OK,
+            Json(SuccessResponse::new(staff_list, "Employés récupérés avec succès".to_string())),
+        ).into_response(),
+        Err(err) => staff::handlers::service_error_response(err),
+    }
+}
+
+/// PUT /admin/tenants/:id/staff/:staff_id — modifie un employé d'un commerce précis.
+pub async fn update_tenant_staff(
+    State(state): State<AdminState>,
+    Extension(claims): Extension<Claims>,
+    Path((commerce_id, staff_id)): Path<(Uuid, i32)>,
+    Json(payload): Json<staff::dto::UpdateStaffRequest>,
+) -> Response {
+    if let Some(forbidden) = require_platform_admin(&claims) {
+        return forbidden;
+    }
+
+    let tenant_pool = match state.tenant_pool_manager.get_pool(commerce_id).await {
+        Ok(pool) => pool,
+        Err(_) => {
+            return (
+                StatusCode::NOT_FOUND,
+                Json(ErrorResponse::new(
+                    error_codes::NOT_FOUND.to_string(),
+                    "Commerce non trouvé ou inactif".to_string(),
+                )),
+            ).into_response();
+        }
+    };
+
+    match staff::services::update_staff(&tenant_pool, staff_id, payload).await {
+        Ok(member) => (
+            StatusCode::OK,
+            Json(SuccessResponse::new(member, "Employé mis à jour avec succès".to_string())),
+        ).into_response(),
+        Err(err) => staff::handlers::service_error_response(err),
+    }
+}
+
+/// DELETE /admin/tenants/:id/staff/:staff_id — supprime un employé d'un commerce précis.
+pub async fn delete_tenant_staff(
+    State(state): State<AdminState>,
+    Extension(claims): Extension<Claims>,
+    Path((commerce_id, staff_id)): Path<(Uuid, i32)>,
+) -> Response {
+    if let Some(forbidden) = require_platform_admin(&claims) {
+        return forbidden;
+    }
+
+    let tenant_pool = match state.tenant_pool_manager.get_pool(commerce_id).await {
+        Ok(pool) => pool,
+        Err(_) => {
+            return (
+                StatusCode::NOT_FOUND,
+                Json(ErrorResponse::new(
+                    error_codes::NOT_FOUND.to_string(),
+                    "Commerce non trouvé ou inactif".to_string(),
+                )),
+            ).into_response();
+        }
+    };
+
+    match staff::services::delete_staff(&tenant_pool, staff_id).await {
+        Ok(()) => (
+            StatusCode::NO_CONTENT,
+            Json(SuccessResponse::new(
+                "Employé supprimé avec succès".to_string(),
+                "Employé supprimé".to_string(),
+            )),
+        ).into_response(),
+        Err(err) => staff::handlers::service_error_response(err),
     }
 }
 

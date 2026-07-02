@@ -10,6 +10,7 @@ use chrono::Utc;
 
 use crate::common::responses::{SuccessResponse, ErrorResponse};
 use crate::common::error_codes;
+use crate::common::security::Claims;
 
 use super::dto::{CreateOrderRequest, UpdateOrderRequest, OrderQueryParams, OrderResponse, LineItemResponse, OrderStatsResponse, SendReceiptRequest};
 use super::services::OrderService;
@@ -66,6 +67,7 @@ pub async fn get_orders(
 )]
 pub async fn create_order(
     Extension(pool): Extension<PgPool>,
+    Extension(claims): Extension<Claims>,
     Json(request): Json<CreateOrderRequest>,
 ) -> Response {
     // Verify user exists
@@ -213,8 +215,12 @@ pub async fn create_order(
         "INSERT INTO order_ord (user_id_ord, order_date_ord, status_ord, amount_ord, discount_amount_ord, payment_method_ord)
          VALUES ($1, $2, $3, $4, $5, $6)
          RETURNING id_ord, user_id_ord, order_date_ord, status_ord, amount_ord, discount_amount_ord, created_at, updated_at"
+        "INSERT INTO order_ord (user_id_ord, staff_id_ord, order_date_ord, status_ord, amount_ord, discount_amount_ord)
+         VALUES ($1, $2, $3, $4, $5, $6)
+         RETURNING id_ord, user_id_ord, staff_id_ord, order_date_ord, status_ord, amount_ord, discount_amount_ord, created_at, updated_at"
     )
     .bind(request.user_id)
+    .bind(claims.staff_id)
     .bind(Utc::now())
     .bind(&request.status)
     .bind(final_amount)

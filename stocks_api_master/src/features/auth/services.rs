@@ -2,6 +2,7 @@ use sqlx::{PgPool, Row};
 use uuid::Uuid;
 
 use crate::common::security::{self, SecurityError};
+use crate::common::tenant_pool::TenantPoolManager;
 
 #[derive(Debug)]
 pub struct AuthenticatedUser {
@@ -9,6 +10,7 @@ pub struct AuthenticatedUser {
     pub slug: Option<String>,
     pub email: String,
     pub role: String,
+    pub staff_id: Option<i32>,
 }
 
 #[derive(Debug)]
@@ -33,8 +35,10 @@ impl From<SecurityError> for AuthServiceError {
 
 pub async fn authenticate_user(
     pool: &PgPool,
+    tenant_pool_manager: &TenantPoolManager,
     email: &str,
     password: &str,
+    commerce_id_hint: Option<Uuid>,
 ) -> Result<AuthenticatedUser, AuthServiceError> {
 
     // 1️⃣ Platform admin
@@ -58,13 +62,14 @@ pub async fn authenticate_user(
                 slug: None,
                 email: email_db,
                 role: "platform_admin".to_string(),
+                staff_id: None,
             });
         } else {
             return Err(AuthServiceError::InvalidCredentials);
         }
     }
 
-    // 2️⃣ Commerce (tenant)
+    // 2️⃣ Commerce (tenant owner)
     if let Some(row) = sqlx::query(
         r#"
         SELECT id, email, slug, password_hash
@@ -87,9 +92,48 @@ pub async fn authenticate_user(
                 slug: Some(slug),
                 email: email_db,
                 role: "commerce".to_string(),
+                staff_id: None,
             });
         } else {
             return Err(AuthServiceError::InvalidCredentials);
+        }
+    }
+
+    // 3️⃣ Employé (staff) — l'email n'est unique que dans son commerce, donc
+    // le front doit préciser sur quel commerce se connecter.
+    if let Some(commerce_id) = commerce_id_hint {
+        let tenant_pool = tenant_pool_manager
+            .get_pool(commerce_id)
+            .await
+            .map_err(|_| AuthServiceError::InvalidCredentials)?;
+
+        if let Some(row) = sqlx::query(
+            r#"
+            SELECT id_stf, email_stf, password_stf, role_stf
+            FROM staff_stf
+            WHERE email_stf = $1 AND status_stf = 'active'
+            "#,
+        )
+            .bind(email)
+            .fetch_optional(&tenant_pool)
+            .await?
+        {
+            let staff_id: i32 = row.get("id_stf");
+            let email_db: String = row.get("email_stf");
+            let password_hash: String = row.get("password_stf");
+            let role: String = row.get("role_stf");
+
+            if security::verify_password(password, &password_hash)? {
+                return Ok(AuthenticatedUser {
+                    commerce_id: Some(commerce_id),
+                    slug: None,
+                    email: email_db,
+                    role,
+                    staff_id: Some(staff_id),
+                });
+            } else {
+                return Err(AuthServiceError::InvalidCredentials);
+            }
         }
     }
 

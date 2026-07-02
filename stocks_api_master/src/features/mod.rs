@@ -7,6 +7,7 @@ pub mod stocks;
 pub mod orders;
 pub mod sales;
 pub mod users;
+pub mod staff;
 pub mod ai_insights;
 pub mod alerts;
 pub mod ai_predictions;

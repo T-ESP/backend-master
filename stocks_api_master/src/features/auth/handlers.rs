@@ -4,7 +4,6 @@ use axum::{
     response::{IntoResponse, Response},
     Json,
 };
-use sqlx::PgPool;
 use uuid::Uuid;
 
 use crate::common::{
@@ -15,6 +14,7 @@ use crate::common::{
 
 use super::{
     dto::{LoginRequest, LoginResponse, AdminRegisterRequest},
+    router::AuthState,
     services::{self, AuthServiceError},
 };
 
@@ -30,11 +30,17 @@ use super::{
     )
 )]
 pub async fn login(
-    State(pool): State<PgPool>,
+    State(state): State<AuthState>,
     Json(payload): Json<LoginRequest>,
 ) -> Response {
 
-    match services::authenticate_user(&pool, &payload.email, &payload.password).await {
+    match services::authenticate_user(
+        &state.pool,
+        &state.tenant_pool_manager,
+        &payload.email,
+        &payload.password,
+        payload.commerce_id,
+    ).await {
         Ok(user) => {
 
             match security::generate_jwt(
@@ -42,6 +48,7 @@ pub async fn login(
                 user.slug,
                 &user.email,
                 &user.role,
+                user.staff_id,
             ) {
                 Ok(token) => (
                     StatusCode::OK,
@@ -117,12 +124,12 @@ pub async fn login(
     )
 )]
 pub async fn register(
-    State(pool): State<PgPool>,
+    State(state): State<AuthState>,
     Json(payload): Json<AdminRegisterRequest>,
 ) -> Response {
 
     match services::register_platform_admin(
-        &pool,
+        &state.pool,
         &payload.email,
         &payload.password,
     ).await {

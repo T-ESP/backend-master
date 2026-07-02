@@ -53,6 +53,20 @@ CREATE TABLE IF NOT EXISTS users_usr (
 
 CREATE INDEX IF NOT EXISTS idx_users_fidelity_code ON users_usr(fidelity_code_usr);
 
+-- Comptes du personnel du commerce (distincts des clients dans users_usr).
+-- Créés uniquement par le compte "commerce" (le gérant), pas par la plateforme.
+CREATE TABLE IF NOT EXISTS staff_stf (
+    id_stf        SERIAL PRIMARY KEY,
+    email_stf     VARCHAR NOT NULL UNIQUE,
+    lastname_stf  VARCHAR NOT NULL,
+    firstname_stf VARCHAR NOT NULL,
+    password_stf  VARCHAR NOT NULL,
+    role_stf      VARCHAR NOT NULL DEFAULT 'employee',
+    status_stf    VARCHAR NOT NULL DEFAULT 'active',
+    created_at    TIMESTAMPTZ DEFAULT NOW(),
+    updated_at    TIMESTAMPTZ DEFAULT NOW()
+);
+
 CREATE TABLE IF NOT EXISTS role_user_rus (
     id_role_rus INTEGER NOT NULL,
     id_user_rus INTEGER NOT NULL,
@@ -100,6 +114,7 @@ CREATE TABLE IF NOT EXISTS productprices_prp (
 CREATE TABLE IF NOT EXISTS order_ord (
     id_ord               SERIAL PRIMARY KEY,
     user_id_ord          INTEGER NOT NULL,
+    staff_id_ord         INTEGER,
     order_date_ord       TIMESTAMPTZ NOT NULL,
     status_ord           VARCHAR NOT NULL,
     amount_ord           NUMERIC NOT NULL,
@@ -107,7 +122,8 @@ CREATE TABLE IF NOT EXISTS order_ord (
     payment_method_ord   VARCHAR,
     created_at           TIMESTAMPTZ DEFAULT NOW(),
     updated_at           TIMESTAMPTZ DEFAULT NOW(),
-    FOREIGN KEY (user_id_ord) REFERENCES users_usr(id_usr) ON DELETE RESTRICT
+    FOREIGN KEY (user_id_ord) REFERENCES users_usr(id_usr) ON DELETE RESTRICT,
+    FOREIGN KEY (staff_id_ord) REFERENCES staff_stf(id_stf) ON DELETE SET NULL
 );
 
 CREATE TABLE IF NOT EXISTS line_order_lor (
