@@ -119,6 +119,7 @@ CREATE TABLE IF NOT EXISTS order_ord (
     status_ord           VARCHAR NOT NULL,
     amount_ord           NUMERIC NOT NULL,
     discount_amount_ord  NUMERIC NOT NULL DEFAULT 0,
+    payment_method_ord   VARCHAR,
     created_at           TIMESTAMPTZ DEFAULT NOW(),
     updated_at           TIMESTAMPTZ DEFAULT NOW(),
     FOREIGN KEY (user_id_ord) REFERENCES users_usr(id_usr) ON DELETE RESTRICT,
