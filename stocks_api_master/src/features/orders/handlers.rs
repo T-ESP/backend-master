@@ -17,7 +17,6 @@ use super::services::OrderService;
 use crate::features::loyalty::services::LoyaltyService;
 use crate::features::discounts::services::DiscountService;
 use crate::features::discounts::dto::CheckLineItem;
-use crate::common::security::Claims;
 use crate::common::email;
 
 /// GET /api/orders - Get all orders with optional filtering
@@ -212,11 +211,8 @@ pub async fn create_order(
 
     // Create the order
     let order_row = match sqlx::query(
-        "INSERT INTO order_ord (user_id_ord, order_date_ord, status_ord, amount_ord, discount_amount_ord, payment_method_ord)
-         VALUES ($1, $2, $3, $4, $5, $6)
-         RETURNING id_ord, user_id_ord, order_date_ord, status_ord, amount_ord, discount_amount_ord, created_at, updated_at"
-        "INSERT INTO order_ord (user_id_ord, staff_id_ord, order_date_ord, status_ord, amount_ord, discount_amount_ord)
-         VALUES ($1, $2, $3, $4, $5, $6)
+        "INSERT INTO order_ord (user_id_ord, staff_id_ord, order_date_ord, status_ord, amount_ord, discount_amount_ord, payment_method_ord)
+         VALUES ($1, $2, $3, $4, $5, $6, $7)
          RETURNING id_ord, user_id_ord, staff_id_ord, order_date_ord, status_ord, amount_ord, discount_amount_ord, created_at, updated_at"
     )
     .bind(request.user_id)
