@@ -223,6 +223,20 @@ CATEGORIES = [
     "vegetables", "meat", "fish", "pasta", "sauces",
 ]
 
+# Fourchettes de prix d'achat réalistes par catégorie (fallback si OFF ne fournit pas de prix)
+CATEGORY_PRICE_RANGES = {
+    "cereals":    (0.80, 4.00),
+    "dairy":      (0.50, 5.00),
+    "beverages":  (0.30, 3.00),
+    "snacks":     (0.80, 5.00),
+    "fruits":     (0.50, 4.00),
+    "vegetables": (0.40, 3.50),
+    "meat":       (3.00, 18.00),
+    "fish":       (2.50, 15.00),
+    "pasta":      (0.60, 3.50),
+    "sauces":     (0.80, 4.50),
+}
+
 # Fonction pour avoir une date aléatoire des 2 derniers mois
 def random_date_last_2_months() -> str:
     today = datetime.today()
@@ -246,7 +260,7 @@ def fetch_products_from_off(nb: int) -> list[dict]:
             f"?action=process"
             f"&tagtype_0=categories&tag_contains_0=contains&tag_0={category}"
             f"&tagtype_1=countries&tag_contains_1=contains&tag_1=france"
-            f"&fields=code,product_name_fr,product_name,categories_tags"
+            f"&fields=code,product_name_fr,product_name,categories_tags,price_100g,price"
             f"&json=1&page_size=50&page={page}"
         )
 
@@ -272,7 +286,7 @@ def fetch_products_from_off(nb: int) -> list[dict]:
             barcode = p.get("code", "").strip()
             # On prend en priorité le nom français de l'article
             name = p.get("product_name_fr", "").strip() or p.get("product_name", "").strip()
-            if not barcode or not name or barcode in seen_barcodes:
+            if not barcode or not name or barcode in seen_barcodes or name.isdigit():
                 continue
 
             cats = p.get("categories_tags", [])
@@ -296,7 +310,28 @@ def fetch_products_from_off(nb: int) -> list[dict]:
                 category_clean = category.replace("-", " ").title()
 
             seen_barcodes.add(barcode)
-            
+
+            # Prix depuis OFF (champ price ou price_100g * quantité estimée)
+            off_price = None
+            raw_price = p.get("price")
+            if raw_price:
+                try:
+                    off_price = round(float(raw_price), 2)
+                except (ValueError, TypeError):
+                    pass
+            if off_price is None:
+                raw_price_100g = p.get("price_100g")
+                if raw_price_100g:
+                    try:
+                        # Estimation : produit moyen de 400g
+                        off_price = round(float(raw_price_100g) * 4, 2)
+                    except (ValueError, TypeError):
+                        pass
+            if off_price is None or off_price <= 0 or off_price > 100:
+                # Fallback : fourchette réaliste par catégorie
+                low, high = CATEGORY_PRICE_RANGES.get(category, (0.5, 10.0))
+                off_price = round(random.uniform(low, high), 2)
+
             # Détermination du statut en fonction du stock
             stock_qty = random.randint(4, 68)
             status = 'in_stock' if stock_qty > 0 else 'out_of_stock'
@@ -308,7 +343,7 @@ def fetch_products_from_off(nb: int) -> list[dict]:
                 "reference_pro": barcode[:50],
                 "supplier_id_pro": random.randint(1, 10),
                 "stock_quantity_pro": stock_qty,
-                "buying_price_pro": round(random.uniform(0.5, 50.0), 2),
+                "buying_price_pro": off_price,
                 "status_pro": status,
                 "date_last_reassor_pro": random_date_last_2_months(),
                 "created_at": "2024-01-01",
