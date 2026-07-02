@@ -8,6 +8,7 @@ use utoipa::{ToSchema, IntoParams};
 pub struct OrderResponse {
     pub id: i32,
     pub user_id: i32,
+    pub staff_id: Option<i32>,
     pub order_date: DateTime<Utc>,
     pub status: String,
     pub amount: Decimal,
@@ -21,6 +22,7 @@ impl OrderResponse {
         Self {
             id: row.get("id_ord"),
             user_id: row.get("user_id_ord"),
+            staff_id: row.try_get("staff_id_ord").ok(),
             order_date: row.get("order_date_ord"),
             status: row.get("status_ord"),
             amount: row.get("amount_ord"),
@@ -203,9 +205,11 @@ mod tests {
         let order = OrderResponse {
             id: 1,
             user_id: 123,
+            staff_id: None,
             order_date: Utc::now(),
             status: "confirmed".to_string(),
             amount: Decimal::from_str("299.99").unwrap(),
+            discount_amount: Decimal::ZERO,
             created_at: Utc::now(),
             updated_at: Utc::now(),
         };
@@ -384,9 +388,11 @@ mod tests {
             let order = OrderResponse {
                 id: 1,
                 user_id: 1,
+                staff_id: None,
                 order_date: Utc::now(),
                 status: status.to_string(),
                 amount: Decimal::from_str("100.00").unwrap(),
+                discount_amount: Decimal::ZERO,
                 created_at: Utc::now(),
                 updated_at: Utc::now(),
             };
@@ -403,9 +409,11 @@ mod tests {
             let order = OrderResponse {
                 id: 1,
                 user_id: 1,
+                staff_id: None,
                 order_date: Utc::now(),
                 status: "pending".to_string(),
                 amount: Decimal::from_str(amount_str).unwrap(),
+                discount_amount: Decimal::ZERO,
                 created_at: Utc::now(),
                 updated_at: Utc::now(),
             };

@@ -14,6 +14,8 @@ pub struct Claims {
     pub slug: Option<String>,
     pub email: String,
     pub role: String,
+    #[serde(default)]
+    pub staff_id: Option<i32>,
     pub exp: usize,
 }
 
@@ -78,6 +80,7 @@ pub fn generate_jwt(
     slug: Option<String>,
     email: &str,
     role: &str,
+    staff_id: Option<i32>,
 ) -> Result<String, SecurityError> {
 
     let expiration = Utc::now()
@@ -89,6 +92,7 @@ pub fn generate_jwt(
         slug,
         email: email.to_string(),
         role: role.to_string(),
+        staff_id,
         exp: expiration.timestamp() as usize,
     };
 

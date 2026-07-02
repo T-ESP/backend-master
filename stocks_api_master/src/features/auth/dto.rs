@@ -1,10 +1,15 @@
 use serde::{Deserialize, Serialize};
 use utoipa::ToSchema;
+use uuid::Uuid;
 
 #[derive(Debug, Deserialize, ToSchema)]
 pub struct LoginRequest {
     pub email: String,
     pub password: String,
+    /// Requis pour la connexion d'un employé (compte staff), car son email
+    /// n'est unique que dans son commerce, pas globalement.
+    #[serde(default)]
+    pub commerce_id: Option<Uuid>,
 }
 
 #[derive(Debug, Deserialize, ToSchema)]
