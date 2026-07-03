@@ -513,6 +513,214 @@ def generate_price_history(cursor, output_sql: str) -> None:
 
 
 # ============================================================
+# Promotions
+# ============================================================
+
+DISCOUNTS = [
+    {
+        "name": "10 € offerts dès 60 €",
+        "trigger_type": "total_amount",
+        "trigger_product_id": None,
+        "trigger_min_amount": 60.00,
+        "trigger_min_qty": None,
+        "action_type": "fixed_eur",
+        "action_value": 10.00,
+        "scope": "global",
+        "scope_product_id": None,
+        "cumulative": False,
+    },
+    {
+        "name": "10 % offerts dès 100 €",
+        "trigger_type": "total_amount",
+        "trigger_product_id": None,
+        "trigger_min_amount": 100.00,
+        "trigger_min_qty": None,
+        "action_type": "percentage",
+        "action_value": 10.00,
+        "scope": "global",
+        "scope_product_id": None,
+        "cumulative": False,
+    },
+    {
+        # 2+1 gratuit : sur 3 articles achetés, réduction équivalente à 1 gratuit (33 %)
+        "name": "2 + 1 gratuit",
+        "trigger_type": "quantity",
+        "trigger_product_id": None,
+        "trigger_min_amount": None,
+        "trigger_min_qty": 3,
+        "action_type": "percentage",
+        "action_value": 33.33,
+        "scope": "per_product",
+        "scope_product_id": None,
+        "cumulative": False,
+    },
+    {
+        # 3+1 gratuit : sur 4 articles achetés, réduction équivalente à 1 gratuit (25 %)
+        "name": "3 + 1 gratuit",
+        "trigger_type": "quantity",
+        "trigger_product_id": None,
+        "trigger_min_amount": None,
+        "trigger_min_qty": 4,
+        "action_type": "percentage",
+        "action_value": 25.00,
+        "scope": "per_product",
+        "scope_product_id": None,
+        "cumulative": False,
+    },
+    {
+        # 5+2 gratuits : sur 7 articles achetés, réduction équivalente à 2 gratuits (28.57 %)
+        "name": "5 + 2 gratuits",
+        "trigger_type": "quantity",
+        "trigger_product_id": None,
+        "trigger_min_amount": None,
+        "trigger_min_qty": 7,
+        "action_type": "percentage",
+        "action_value": 28.57,
+        "scope": "per_product",
+        "scope_product_id": None,
+        "cumulative": False,
+    },
+    {
+        # 2ème article à -50 % : dès 2 articles, réduction équivalente de 25 % sur les 2
+        "name": "2ème article à -50 %",
+        "trigger_type": "quantity",
+        "trigger_product_id": None,
+        "trigger_min_amount": None,
+        "trigger_min_qty": 2,
+        "action_type": "percentage",
+        "action_value": 25.00,
+        "scope": "per_product",
+        "scope_product_id": None,
+        "cumulative": False,
+    },
+    {
+        # Bonus fidélité : +25 % de points — modélisé comme réduction percentage global
+        "name": "25 % de points de fidélité crédités en plus",
+        "trigger_type": "total_amount",
+        "trigger_product_id": None,
+        "trigger_min_amount": 0.00,
+        "trigger_min_qty": None,
+        "action_type": "percentage",
+        "action_value": 25.00,
+        "scope": "global",
+        "scope_product_id": None,
+        "cumulative": True,
+    },
+    {
+        # Carte de fidélité : -10 % sans montant minimum
+        "name": "10 % de réduction carte de fidélité",
+        "trigger_type": "total_amount",
+        "trigger_product_id": None,
+        "trigger_min_amount": 0.00,
+        "trigger_min_qty": None,
+        "action_type": "percentage",
+        "action_value": 10.00,
+        "scope": "global",
+        "scope_product_id": None,
+        "cumulative": False,
+    },
+    {
+        # Cagnotte : 5 € offerts — modélisé comme remise fixe sans minimum
+        "name": "5 € offerts sur votre cagnotte",
+        "trigger_type": "total_amount",
+        "trigger_product_id": None,
+        "trigger_min_amount": 0.00,
+        "trigger_min_qty": None,
+        "action_type": "fixed_eur",
+        "action_value": 5.00,
+        "scope": "global",
+        "scope_product_id": None,
+        "cumulative": True,
+    },
+    {
+        # Anti-gaspillage : -50 % sur produit — à associer manuellement aux produits concernés
+        "name": "-50 % sur les produits anti gaspis",
+        "trigger_type": "product",
+        "trigger_product_id": None,
+        "trigger_min_amount": None,
+        "trigger_min_qty": None,
+        "action_type": "percentage",
+        "action_value": 50.00,
+        "scope": "per_product",
+        "scope_product_id": None,
+        "cumulative": False,
+    },
+]
+
+
+def discount_seeder(cursor, output_sql: str) -> None:
+    print(f"Initialisation du processus de sérialisation des promotions vers : {output_sql}")
+
+    parent_dir = os.path.dirname(output_sql)
+    if parent_dir:
+        os.makedirs(parent_dir, exist_ok=True)
+
+    lines = [
+        "-- ============================================================",
+        f"-- Seed promotions — généré le {datetime.now().strftime('%Y-%m-%d %H:%M:%S')}",
+        f"-- {len(DISCOUNTS)} promotions",
+        "-- ============================================================",
+        "",
+    ]
+
+    for d in DISCOUNTS:
+        trigger_product_id = d["trigger_product_id"] if d["trigger_product_id"] is not None else "NULL"
+        trigger_min_amount = d["trigger_min_amount"] if d["trigger_min_amount"] is not None else "NULL"
+        trigger_min_qty    = d["trigger_min_qty"]    if d["trigger_min_qty"]    is not None else "NULL"
+        scope_product_id   = d["scope_product_id"]   if d["scope_product_id"]   is not None else "NULL"
+
+        line = (
+            f"INSERT INTO discounts_dis "
+            f"(name_dis, trigger_type_dis, trigger_product_id_dis, trigger_min_amount_dis, trigger_min_qty_dis, "
+            f"action_type_dis, action_value_dis, scope_dis, scope_product_id_dis, cumulative_dis) VALUES ("
+            f"'{escape_sql(d['name'])}', "
+            f"'{d['trigger_type']}'::discount_trigger_enum, "
+            f"{trigger_product_id}, "
+            f"{trigger_min_amount}, "
+            f"{trigger_min_qty}, "
+            f"'{d['action_type']}'::discount_action_enum, "
+            f"{d['action_value']}, "
+            f"'{d['scope']}'::discount_scope_enum, "
+            f"{scope_product_id}, "
+            f"{str(d['cumulative']).upper()}"
+            f");"
+        )
+        lines.append(line)
+
+        try:
+            cursor.execute(
+                """
+                INSERT INTO discounts_dis
+                  (name_dis, trigger_type_dis, trigger_product_id_dis, trigger_min_amount_dis,
+                   trigger_min_qty_dis, action_type_dis, action_value_dis, scope_dis,
+                   scope_product_id_dis, cumulative_dis)
+                VALUES (%s, %s::discount_trigger_enum, %s, %s, %s, %s::discount_action_enum, %s,
+                        %s::discount_scope_enum, %s, %s)
+                ON CONFLICT DO NOTHING;
+                """,
+                (
+                    d["name"],
+                    d["trigger_type"],
+                    d["trigger_product_id"],
+                    d["trigger_min_amount"],
+                    d["trigger_min_qty"],
+                    d["action_type"],
+                    d["action_value"],
+                    d["scope"],
+                    d["scope_product_id"],
+                    d["cumulative"],
+                )
+            )
+        except Exception as e:
+            print(f"Erreur d'insertion dans la base de données pour la promotion '{d['name']}' : {e}")
+
+    with open(output_sql, "w", encoding="utf-8") as f:
+        f.write("\n".join(lines) + "\n")
+
+    print(f"Opération I/O et BDD (promotions) terminée avec succès. ({len(DISCOUNTS)} lignes)")
+
+
+# ============================================================
 # Distribution clients par segment pour les commandes
 # ============================================================
 CLIENT_SEGMENTS = {
@@ -531,7 +739,7 @@ def realistic_order_date() -> datetime:
     # Distribution exponentielle : concentre les dates récentes
     days_ago = int(random.expovariate(1 / 365))
     days_ago = min(days_ago, 730)
-    days_ago = max(days_ago, 1)
+    days_ago = max(days_ago, 0)
     d = today - timedelta(days=days_ago)
     return d.replace(
         hour=random.randint(6, 22),
@@ -543,31 +751,23 @@ def realistic_order_date() -> datetime:
 
 def assign_segments(user_ids: list[int]) -> dict:
     """Assigne chaque utilisateur à un segment et génère ses dates de commandes."""
+    segment_names = list(CLIENT_SEGMENTS.keys())
+    segment_weights = [CLIENT_SEGMENTS[s]["ratio"] for s in segment_names]
+
     user_segments = {}
-    shuffled = user_ids[:]
-    random.shuffle(shuffled)
+    for uid in user_ids:
+        segment_name = random.choices(segment_names, weights=segment_weights, k=1)[0]
+        min_cmd, max_cmd = CLIENT_SEGMENTS[segment_name]["commandes_range"]
 
-    idx = 0
-    for segment_name, seg_info in CLIENT_SEGMENTS.items():
-        nb_clients = max(1, int(len(shuffled) * seg_info["ratio"]))
-        min_cmd, max_cmd = seg_info["commandes_range"]
+        dates = []
+        for _ in range(24):
+            for _ in range(random.randint(min_cmd, max_cmd)):
+                dates.append(realistic_order_date())
 
-        for _ in range(nb_clients):
-            if idx >= len(shuffled):
-                break
-            uid = shuffled[idx]
-            idx += 1
-
-            # Générer les dates sur 24 mois
-            dates = []
-            for _ in range(24):
-                for _ in range(random.randint(min_cmd, max_cmd)):
-                    dates.append(realistic_order_date())
-
-            user_segments[uid] = {
-                "segment": segment_name,
-                "dates": sorted(dates),
-            }
+        user_segments[uid] = {
+            "segment": segment_name,
+            "dates": sorted(dates),
+        }
 
     return user_segments
 
@@ -705,6 +905,7 @@ if __name__ == "__main__":
         cursor.execute(
             """
             TRUNCATE TABLE
+              discounts_dis,
               productrestockprices_prr,
               line_restock_lrs,
               restock_res,
@@ -740,6 +941,9 @@ if __name__ == "__main__":
 
         # On insère les commandes et lignes de commandes
         generate_orders(cursor, 'seeds/seed_orders.sql')
+
+        # On insère les promotions
+        discount_seeder(cursor, 'seeds/seed_discounts.sql')
 
         conn.commit()
         cursor.close()
