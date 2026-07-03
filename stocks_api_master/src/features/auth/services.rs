@@ -124,9 +124,18 @@ pub async fn authenticate_user(
             let role: String = row.get("role_stf");
 
             if security::verify_password(password, &password_hash)? {
+                // Le slug est nécessaire pour rediriger l'employé vers le
+                // sous-domaine de son commerce, comme pour le compte commerce.
+                let slug: Option<String> = sqlx::query_scalar(
+                    "SELECT slug FROM commerces WHERE id = $1"
+                )
+                    .bind(commerce_id)
+                    .fetch_optional(pool)
+                    .await?;
+
                 return Ok(AuthenticatedUser {
                     commerce_id: Some(commerce_id),
-                    slug: None,
+                    slug,
                     email: email_db,
                     role,
                     staff_id: Some(staff_id),
