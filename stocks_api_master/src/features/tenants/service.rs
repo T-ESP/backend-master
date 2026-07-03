@@ -171,18 +171,33 @@ pub async fn seed_tenant(
     let base_url = parse_base_url(database_url)?;
     let tenant_url = format!("{}/{}", base_url, tenant.db_name);
 
-    let seed_binary = std::env::current_exe()
-        .ok()
-        .and_then(|p| p.parent().map(|d| d.join("seed")))
-        .unwrap_or_else(|| std::path::PathBuf::from("/app/seed"));
+    // Interpréteur Python (surchargeable en dev, ex. `python` sous Windows).
+    let python_bin = std::env::var("PYTHON_BIN").unwrap_or_else(|_| "python3".to_string());
 
-    let seed_result = tokio::process::Command::new(&seed_binary)
+    // Localiser seed.py à côté de l'exécutable, sinon fallback conteneur (/app/seed.py).
+    let seed_script = std::env::var("SEED_SCRIPT_PATH")
+        .map(std::path::PathBuf::from)
+        .unwrap_or_else(|_| {
+            std::env::current_exe()
+                .ok()
+                .and_then(|p| p.parent().map(|d| d.join("seed.py")))
+                .unwrap_or_else(|| std::path::PathBuf::from("/app/seed.py"))
+        });
+
+    // seed.py écrit des fichiers seeds/*.sql relatifs au CWD : on se place là où il vit.
+    let work_dir = seed_script
+        .parent()
+        .map(|p| p.to_path_buf())
+        .unwrap_or_else(|| std::path::PathBuf::from("/app"));
+
+    let seed_result = tokio::process::Command::new(&python_bin)
+        .arg(&seed_script)
         .env("DATABASE_URL", &tenant_url)
-        .env("SEED_RESET", "0")
+        .current_dir(&work_dir)
         .output()
         .await
         .map_err(|e| TenantServiceError::DatabaseProvisioning(
-            format!("Failed to launch seed: {}", e)
+            format!("Failed to launch seed.py: {}", e)
         ))?;
 
     if !seed_result.status.success() {

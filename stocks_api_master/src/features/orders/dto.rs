@@ -39,6 +39,15 @@ pub struct CreateOrderRequest {
     pub status: String,
     pub line_items: Vec<CreateLineItemRequest>,
     pub discount_ids: Option<Vec<i32>>,
+    /// Mode de paiement caisse (ex: "card", "cash") — optionnel
+    #[serde(default)]
+    pub payment_method: Option<String>,
+}
+
+/// Corps de requête pour l'envoi d'un ticket de caisse par email
+#[derive(Debug, Deserialize, ToSchema)]
+pub struct SendReceiptRequest {
+    pub email: String,
 }
 
 #[derive(Debug, Deserialize, ToSchema)]

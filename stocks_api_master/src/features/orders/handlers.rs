@@ -12,11 +12,12 @@ use crate::common::responses::{SuccessResponse, ErrorResponse};
 use crate::common::error_codes;
 use crate::common::security::Claims;
 
-use super::dto::{CreateOrderRequest, UpdateOrderRequest, OrderQueryParams, OrderResponse, LineItemResponse, OrderStatsResponse};
+use super::dto::{CreateOrderRequest, UpdateOrderRequest, OrderQueryParams, OrderResponse, LineItemResponse, OrderStatsResponse, SendReceiptRequest};
 use super::services::OrderService;
 use crate::features::loyalty::services::LoyaltyService;
 use crate::features::discounts::services::DiscountService;
 use crate::features::discounts::dto::CheckLineItem;
+use crate::common::email;
 
 /// GET /api/orders - Get all orders with optional filtering
 #[utoipa::path(
@@ -210,8 +211,8 @@ pub async fn create_order(
 
     // Create the order
     let order_row = match sqlx::query(
-        "INSERT INTO order_ord (user_id_ord, staff_id_ord, order_date_ord, status_ord, amount_ord, discount_amount_ord)
-         VALUES ($1, $2, $3, $4, $5, $6)
+        "INSERT INTO order_ord (user_id_ord, staff_id_ord, order_date_ord, status_ord, amount_ord, discount_amount_ord, payment_method_ord)
+         VALUES ($1, $2, $3, $4, $5, $6, $7)
          RETURNING id_ord, user_id_ord, staff_id_ord, order_date_ord, status_ord, amount_ord, discount_amount_ord, created_at, updated_at"
     )
     .bind(request.user_id)
@@ -220,6 +221,7 @@ pub async fn create_order(
     .bind(&request.status)
     .bind(final_amount)
     .bind(discount_amount)
+    .bind(&request.payment_method)
     .fetch_one(&mut *tx)
     .await {
         Ok(row) => row,
@@ -353,6 +355,145 @@ pub async fn create_order(
         StatusCode::CREATED,
         Json(SuccessResponse::new(created_order, "Order created successfully".to_string()))
     ).into_response()
+}
+
+/// POST /api/orders/:id/receipt - Génère le ticket et l'envoie par email (SendGrid)
+pub async fn send_receipt(
+    Path((_commerce_id, id)): Path<(String, i32)>,
+    Extension(pool): Extension<PgPool>,
+    Extension(claims): Extension<Claims>,
+    Json(request): Json<SendReceiptRequest>,
+) -> Response {
+    let order_row = match sqlx::query(
+        "SELECT id_ord, order_date_ord, status_ord, amount_ord, discount_amount_ord, payment_method_ord
+         FROM order_ord WHERE id_ord = $1"
+    )
+    .bind(id)
+    .fetch_optional(&pool)
+    .await {
+        Ok(Some(row)) => row,
+        Ok(None) => {
+            return (
+                StatusCode::NOT_FOUND,
+                Json(ErrorResponse::new(
+                    error_codes::NOT_FOUND.to_string(),
+                    format!("Commande {} non trouvée", id)
+                ))
+            ).into_response();
+        }
+        Err(e) => {
+            eprintln!("Receipt order fetch error: {}", e);
+            return (
+                StatusCode::INTERNAL_SERVER_ERROR,
+                Json(ErrorResponse::new(
+                    error_codes::DATABASE_ERROR.to_string(),
+                    "Erreur de base de données".to_string()
+                ))
+            ).into_response();
+        }
+    };
+
+    let item_rows = match sqlx::query(
+        "SELECT p.name_pro, l.quantity_lor, l.line_total_lor
+         FROM line_order_lor l
+         JOIN products_pro p ON p.id_pro = l.product_id_lor
+         WHERE l.order_id_lor = $1
+         ORDER BY l.id_lor"
+    )
+    .bind(id)
+    .fetch_all(&pool)
+    .await {
+        Ok(rows) => rows,
+        Err(e) => {
+            eprintln!("Receipt items fetch error: {}", e);
+            return (
+                StatusCode::INTERNAL_SERVER_ERROR,
+                Json(ErrorResponse::new(
+                    error_codes::DATABASE_ERROR.to_string(),
+                    "Erreur de base de données".to_string()
+                ))
+            ).into_response();
+        }
+    };
+
+    let amount: Decimal = order_row.get("amount_ord");
+    let discount: Decimal = order_row.try_get("discount_amount_ord").unwrap_or(Decimal::ZERO);
+    let payment_method: Option<String> = order_row.try_get("payment_method_ord").unwrap_or(None);
+    let order_date: chrono::DateTime<Utc> = order_row.get("order_date_ord");
+
+    let store_name = claims.slug.clone().unwrap_or_else(|| "StockS".to_string());
+    let payment_label = match payment_method.as_deref() {
+        Some("card") => "Carte bancaire",
+        Some("cash") => "Espèces",
+        Some(other) => other,
+        None => "—",
+    };
+
+    let mut lines_html = String::new();
+    for row in &item_rows {
+        let name: String = row.get("name_pro");
+        let qty: i32 = row.get("quantity_lor");
+        let total: Decimal = row.get("line_total_lor");
+        lines_html.push_str(&format!(
+            "<tr><td style=\"padding:4px 8px;\">{}</td><td style=\"padding:4px 8px;text-align:center;\">{}</td><td style=\"padding:4px 8px;text-align:right;\">{:.2} EUR</td></tr>",
+            name, qty, total
+        ));
+    }
+
+    let discount_html = if discount > Decimal::ZERO {
+        format!("<p style=\"margin:2px 0;color:#059669;\">Remise(s) : -{:.2} EUR</p>", discount)
+    } else {
+        String::new()
+    };
+
+    let subtotal = amount + discount;
+    let html = format!(
+        "<div style=\"font-family:Arial,sans-serif;max-width:480px;margin:auto;color:#111;\">\
+            <h2 style=\"text-align:center;margin-bottom:4px;\">{store}</h2>\
+            <p style=\"text-align:center;color:#666;margin-top:0;\">Ticket de caisse</p>\
+            <p style=\"margin:2px 0;\">Commande #{id}</p>\
+            <p style=\"margin:2px 0;\">Date : {date}</p>\
+            <table style=\"width:100%;border-collapse:collapse;margin:12px 0;border-top:1px solid #ddd;border-bottom:1px solid #ddd;\">\
+                <thead><tr><th style=\"text-align:left;padding:4px 8px;\">Article</th><th style=\"padding:4px 8px;\">Qte</th><th style=\"text-align:right;padding:4px 8px;\">Total</th></tr></thead>\
+                <tbody>{lines}</tbody>\
+            </table>\
+            <p style=\"margin:2px 0;text-align:right;color:#666;\">Sous-total : {subtotal:.2} EUR</p>\
+            {discount}\
+            <p style=\"margin:2px 0;\">Paiement : {payment}</p>\
+            <h3 style=\"text-align:right;margin-top:8px;\">Total paye : {amount:.2} EUR</h3>\
+            <p style=\"text-align:center;color:#666;font-size:12px;margin-top:20px;\">Merci de votre visite !</p>\
+        </div>",
+        store = store_name,
+        id = id,
+        date = order_date.format("%d/%m/%Y %H:%M"),
+        lines = lines_html,
+        subtotal = subtotal,
+        discount = discount_html,
+        payment = payment_label,
+        amount = amount,
+    );
+
+    let subject = format!("Votre ticket de caisse - commande #{}", id);
+
+    match email::send_email(&request.email, &subject, html).await {
+        Ok(()) => (
+            StatusCode::OK,
+            Json(SuccessResponse::new(
+                request.email.clone(),
+                format!("Ticket envoyé à {}", request.email),
+            ))
+        ).into_response(),
+        Err(e) => {
+            eprintln!("Receipt email error: {}", e);
+            (
+                StatusCode::BAD_GATEWAY,
+                Json(ErrorResponse::new(
+                    "EMAIL_ERROR".to_string(),
+                    format!("Échec de l'envoi du ticket : {}", e),
+                ))
+            ).into_response()
+        }
+    }
 }
 
 /// GET /api/orders/:id - Get order by ID
