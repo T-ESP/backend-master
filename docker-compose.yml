@@ -5,12 +5,11 @@ services:
     image: pgvector/pgvector:pg16
     environment:
       POSTGRES_USER: user
-      POSTGRES_PASSWORD: pass
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:?POSTGRES_PASSWORD is required}
       POSTGRES_DB: stocks_master
-    ports:
-      - "5433:5432"
     volumes:
       - db_data:/var/lib/postgresql/data
+    restart: unless-stopped
     healthcheck:
       test: ["CMD-SHELL", "pg_isready -U user -d stocks_master"]
       interval: 5s
@@ -25,19 +24,22 @@ services:
     working_dir: /app
     command: /app/migrate
     environment:
-      DATABASE_URL: postgres://user:pass@db:5432/stocks_master
+      DATABASE_URL: postgres://user:${POSTGRES_PASSWORD:?POSTGRES_PASSWORD is required}@db:5432/stocks_master
     restart: "no"
 
-  # seed:
-  #   build: .
-  #   depends_on:
-  #     migrate:
-  #       condition: service_completed_successfully
-  #   working_dir: /app
-  #   command: /app/seed
-  #   environment:
-  #     DATABASE_URL: postgres://user:pass@db:5432/stocks_master
-  #   restart: "no"
+  seed:
+    image: python:3.12-slim
+    depends_on:
+      migrate:
+        condition: service_completed_successfully
+    working_dir: /app
+    entrypoint: ["sh", "-c", "pip install --no-cache-dir -r requirements.txt && python seed.py"]
+    volumes:
+      - ./scripts:/app
+      - ./seeds:/app/seeds
+    environment:
+      DATABASE_URL: postgres://user:${POSTGRES_PASSWORD:?POSTGRES_PASSWORD is required}@db:5432/stocks_master
+    restart: "no"
 
   web:
     build: .
@@ -47,10 +49,14 @@ services:
     working_dir: /app
     command: /app/server
     environment:
-      DATABASE_URL: postgres://user:pass@db:5432/stocks_master
+      DATABASE_URL: postgres://user:${POSTGRES_PASSWORD:?POSTGRES_PASSWORD is required}@db:5432/stocks_master
       JWT_SECRET: zf2nrOa8bEZ4QH1wioy5N0VJj9sevIG3BApqCSKTDgmRYldh7F6UuMPxLXtkWc
       # Where the chat gateway proxies LLM turns.
       AI_SERVICE_URL: http://ai-service:8001
+      # Email du ticket de caisse via SendGrid (même fournisseur que les rapports).
+      # Renseigner SENDGRID_API_KEY dans .env pour activer l'envoi réel.
+      SENDGRID_API_KEY: ${SENDGRID_API_KEY:-}
+      TICKET_FROM_EMAIL: ${TICKET_FROM_EMAIL:-caisse@stock-s.fr}
     ports:
       - "8091:8080"
     restart: unless-stopped
@@ -65,7 +71,7 @@ services:
       migrate:
         condition: service_completed_successfully
     environment:
-      DATABASE_URL: postgres://user:pass@db:5432/stocks_master
+      DATABASE_URL: postgres://user:${POSTGRES_PASSWORD:?POSTGRES_PASSWORD is required}@db:5432/stocks_master
       STOCKS_API_URL: http://web:8080
       AI_SERVICE_PORT: "8001"
       # Local-only LLM: Qwen2.5-3B via llama.cpp (no API keys, fully offline).

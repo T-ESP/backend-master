@@ -37,7 +37,7 @@ async fn main() -> Result<()> {
     let protected_master_routes = Router::new()
         .nest(
             "/admin/tenants",
-            features::tenants::router::tenant_admin_routes(pool.clone()),
+            features::tenants::router::tenant_admin_routes(pool.clone(), tenant_pool_manager.clone()),
         )
         .layer(from_fn(features::auth::middleware::require_platform_admin))
         .layer(from_fn(features::auth::middleware::require_auth));
@@ -50,14 +50,16 @@ async fn main() -> Result<()> {
         .nest("/api/:commerce_id/orders", features::orders::router::order_routes())
         .nest("/api/:commerce_id/sales", features::sales::router::sales_routes())
         .nest("/api/:commerce_id/users", features::users::router::user_routes())
+        .nest("/api/:commerce_id/staff", features::staff::router::staff_routes())
         .nest("/api/:commerce_id/ai/insights", features::ai_insights::router::ai_insights_routes())
         .nest("/api/:commerce_id/alerts", features::alerts::router::alert_routes())
         .nest("/api/:commerce_id/ai/predictions", features::ai_predictions::router::ai_prediction_routes())
         .nest("/api/:commerce_id/kpis", features::global_kpis::router::global_kpis_routes())
         .nest("/api/:commerce_id/restocks", features::restocks::router::restock_routes())
         .nest("/api/:commerce_id/loyalty", features::loyalty::router::loyalty_routes())
+        .nest("/api/:commerce_id/discounts", features::discounts::router::discount_routes())
         .nest("/api/:commerce_id/chat", features::chat::router::chat_routes())
-        .layer(from_fn_with_state(tenant_pool_manager, resolve_tenant_pool))
+        .layer(from_fn_with_state(tenant_pool_manager.clone(), resolve_tenant_pool))
         .layer(from_fn(features::auth::middleware::require_auth));
 
     let cors = CorsLayer::new()
@@ -66,7 +68,8 @@ async fn main() -> Result<()> {
                 origin
                     .to_str()
                     .map(|s| {
-                        s == "http://localhost:4200"
+                        s == "http://localhost:3001"
+                            || s == "http://localhost:4200"
                             || s == "http://localhost:5173"
                             || s == "http://localhost:5174"
                             || s == "https://stock-s.fr"
@@ -91,7 +94,7 @@ async fn main() -> Result<()> {
             SwaggerUi::new("/swagger-ui")
                 .url("/api-docs/openapi.json", ApiDoc::openapi()),
         )
-        .nest("/auth", features::auth::router::auth_routes(pool.clone()))
+        .nest("/auth", features::auth::router::auth_routes(pool.clone(), tenant_pool_manager.clone()))
         // 🌐 Route publique — vérification tenant pour Angular
         .merge(features::tenants::router::tenant_public_routes(pool.clone()))
         .merge(protected_master_routes)

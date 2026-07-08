@@ -34,6 +34,15 @@ pub struct UpdateTenantRequest {
     pub status: Option<String>,
 }
 
+/// Vue admin plateforme d'un employé, avec le contexte du commerce auquel il appartient.
+#[derive(Debug, Serialize, ToSchema)]
+pub struct AdminStaffResponse {
+    pub commerce_id: Uuid,
+    pub commerce_name: String,
+    #[serde(flatten)]
+    pub staff: crate::features::staff::dto::StaffResponse,
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;

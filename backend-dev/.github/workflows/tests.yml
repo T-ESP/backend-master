@@ -207,7 +207,8 @@ jobs:
         working-directory: devops
         run: |
           ansible-playbook -i inventory.ini deploy-backend.yml \
-            -e "gh_token=${{ secrets.GH_TOKEN }}"
+            -e "gh_token=${{ secrets.GH_TOKEN }}" \
+            -e "postgres_password=$POSTGRES_PASSWORD"
         env:
           ANSIBLE_HOST_KEY_CHECKING: False
-
+          POSTGRES_PASSWORD: ${{ secrets.POSTGRES_PASSWORD }}

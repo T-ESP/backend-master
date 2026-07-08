@@ -21,6 +21,7 @@ from __future__ import annotations
 
 import argparse
 import json
+import os
 import re
 import sys
 import time
@@ -44,7 +45,7 @@ if hasattr(sys.stdout, "reconfigure"):
 API = "http://localhost:8090"
 EMAIL = "admin@example.com"
 PASSWORD = "adminpass"
-DB_URL = "postgres://user:pass@localhost:5432/stocks"
+DB_URL = os.environ["DATABASE_URL"]
 
 
 # ──────────────────────────────────────────────────────────────────────────

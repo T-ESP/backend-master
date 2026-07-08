@@ -15,6 +15,10 @@ CREATE TYPE product_status_enum AS ENUM (
 
 CREATE TYPE notification_category_enum AS ENUM ('alert', 'suggestion');
 
+CREATE TYPE discount_trigger_enum AS ENUM ('product', 'total_amount', 'quantity');
+CREATE TYPE discount_action_enum  AS ENUM ('fixed_eur', 'percentage');
+CREATE TYPE discount_scope_enum   AS ENUM ('per_product', 'global');
+
 CREATE TYPE notification_status_enum AS ENUM (
     'new',
     'acknowledged',
@@ -48,6 +52,20 @@ CREATE TABLE IF NOT EXISTS users_usr (
 );
 
 CREATE INDEX IF NOT EXISTS idx_users_fidelity_code ON users_usr(fidelity_code_usr);
+
+-- Comptes du personnel du commerce (distincts des clients dans users_usr).
+-- Créés uniquement par le compte "commerce" (le gérant), pas par la plateforme.
+CREATE TABLE IF NOT EXISTS staff_stf (
+    id_stf        SERIAL PRIMARY KEY,
+    email_stf     VARCHAR NOT NULL UNIQUE,
+    lastname_stf  VARCHAR NOT NULL,
+    firstname_stf VARCHAR NOT NULL,
+    password_stf  VARCHAR NOT NULL,
+    role_stf      VARCHAR NOT NULL DEFAULT 'employee',
+    status_stf    VARCHAR NOT NULL DEFAULT 'active',
+    created_at    TIMESTAMPTZ DEFAULT NOW(),
+    updated_at    TIMESTAMPTZ DEFAULT NOW()
+);
 
 CREATE TABLE IF NOT EXISTS role_user_rus (
     id_role_rus INTEGER NOT NULL,
@@ -94,14 +112,18 @@ CREATE TABLE IF NOT EXISTS productprices_prp (
 );
 
 CREATE TABLE IF NOT EXISTS order_ord (
-    id_ord         SERIAL PRIMARY KEY,
-    user_id_ord    INTEGER NOT NULL,
-    order_date_ord TIMESTAMPTZ NOT NULL,
-    status_ord     VARCHAR NOT NULL,
-    amount_ord     NUMERIC NOT NULL,
-    created_at     TIMESTAMPTZ DEFAULT NOW(),
-    updated_at     TIMESTAMPTZ DEFAULT NOW(),
-    FOREIGN KEY (user_id_ord) REFERENCES users_usr(id_usr) ON DELETE RESTRICT
+    id_ord               SERIAL PRIMARY KEY,
+    user_id_ord          INTEGER NOT NULL,
+    staff_id_ord         INTEGER,
+    order_date_ord       TIMESTAMPTZ NOT NULL,
+    status_ord           VARCHAR NOT NULL,
+    amount_ord           NUMERIC NOT NULL,
+    discount_amount_ord  NUMERIC NOT NULL DEFAULT 0,
+    payment_method_ord   VARCHAR,
+    created_at           TIMESTAMPTZ DEFAULT NOW(),
+    updated_at           TIMESTAMPTZ DEFAULT NOW(),
+    FOREIGN KEY (user_id_ord) REFERENCES users_usr(id_usr) ON DELETE RESTRICT,
+    FOREIGN KEY (staff_id_ord) REFERENCES staff_stf(id_stf) ON DELETE SET NULL
 );
 
 CREATE TABLE IF NOT EXISTS line_order_lor (
@@ -206,6 +228,36 @@ CREATE TABLE IF NOT EXISTS productrestockprices_prr (
     updated_at          TIMESTAMPTZ DEFAULT NOW(),
     FOREIGN KEY (product_ref_prr) REFERENCES products_pro(id_pro) ON DELETE CASCADE,
     FOREIGN KEY (restock_id_prr) REFERENCES restock_res(id_res) ON DELETE CASCADE
+);
+
+-- ============================================================================
+-- DISCOUNT TABLES
+-- ============================================================================
+
+CREATE TABLE IF NOT EXISTS discounts_dis (
+    id_dis                  SERIAL PRIMARY KEY,
+    name_dis                VARCHAR NOT NULL,
+    trigger_type_dis        discount_trigger_enum NOT NULL,
+    trigger_product_id_dis  INTEGER REFERENCES products_pro(id_pro) ON DELETE SET NULL,
+    trigger_min_amount_dis  NUMERIC,
+    trigger_min_qty_dis     INTEGER,
+    action_type_dis         discount_action_enum NOT NULL,
+    action_value_dis        NUMERIC NOT NULL CHECK (action_value_dis > 0),
+    scope_dis               discount_scope_enum NOT NULL,
+    scope_product_id_dis    INTEGER REFERENCES products_pro(id_pro) ON DELETE SET NULL,
+    cumulative_dis          BOOLEAN NOT NULL DEFAULT FALSE,
+    valid_from_dis          TIMESTAMPTZ,
+    valid_until_dis         TIMESTAMPTZ,
+    is_active_dis           BOOLEAN NOT NULL DEFAULT TRUE,
+    created_at              TIMESTAMPTZ DEFAULT NOW(),
+    updated_at              TIMESTAMPTZ DEFAULT NOW()
+);
+
+CREATE TABLE IF NOT EXISTS order_discounts_odc (
+    order_id_odc      INTEGER NOT NULL REFERENCES order_ord(id_ord)    ON DELETE CASCADE,
+    discount_id_odc   INTEGER NOT NULL REFERENCES discounts_dis(id_dis) ON DELETE RESTRICT,
+    saving_amount_odc NUMERIC NOT NULL,
+    PRIMARY KEY (order_id_odc, discount_id_odc)
 );
 
 -- ============================================================================
@@ -322,6 +374,11 @@ CREATE TABLE IF NOT EXISTS supplier_scores (
 -- ============================================================================
 -- INDEXES
 -- ============================================================================
+
+CREATE INDEX IF NOT EXISTS idx_discounts_active   ON discounts_dis(is_active_dis);
+CREATE INDEX IF NOT EXISTS idx_discounts_validity ON discounts_dis(valid_from_dis, valid_until_dis);
+CREATE INDEX IF NOT EXISTS idx_odc_order          ON order_discounts_odc(order_id_odc);
+CREATE INDEX IF NOT EXISTS idx_odc_discount       ON order_discounts_odc(discount_id_odc);
 
 CREATE INDEX IF NOT EXISTS idx_lor_order ON line_order_lor(order_id_lor);
 CREATE INDEX IF NOT EXISTS idx_lor_product ON line_order_lor(product_id_lor);

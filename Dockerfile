@@ -31,6 +31,7 @@ RUN cargo build --release --bin migrate --bin server --bin seed
 FROM debian:bookworm-slim
 
 RUN apt-get update && apt-get install -y libpq5 ca-certificates \
+      python3 python3-pip \
  && rm -rf /var/lib/apt/lists/*
 
 WORKDIR /app
@@ -39,5 +40,10 @@ WORKDIR /app
 COPY --from=builder /build/stocks_api_master/target/release/migrate /app/migrate
 COPY --from=builder /build/stocks_api_master/target/release/server  /app/server
 COPY --from=builder /build/stocks_api_master/target/release/seed    /app/seed
+
+# Seeder Python (seed.py) — utilisé par POST /admin/tenants/:id/seed
+COPY scripts/seed.py           /app/seed.py
+COPY scripts/requirements.txt  /app/requirements.txt
+RUN pip3 install --no-cache-dir --break-system-packages -r /app/requirements.txt
 
 EXPOSE 8080

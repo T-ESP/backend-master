@@ -12,7 +12,7 @@ impl OrderService {
         let limit = params.limit.unwrap_or(50).min(100);
         let offset = params.offset.unwrap_or(0);
 
-        let mut query = "SELECT id_ord, user_id_ord, order_date_ord, status_ord, amount_ord, created_at, updated_at FROM order_ord".to_string();
+        let mut query = "SELECT id_ord, user_id_ord, staff_id_ord, order_date_ord, status_ord, amount_ord, discount_amount_ord, created_at, updated_at FROM order_ord".to_string();
         let mut conditions = Vec::new();
         let mut bind_count = 0;
 
@@ -59,8 +59,8 @@ impl OrderService {
 
     pub async fn get_order_by_id(pool: &PgPool, id: i32) -> Result<Option<OrderResponse>, sqlx::Error> {
         let row = sqlx::query(
-            "SELECT id_ord, user_id_ord, order_date_ord, status_ord, amount_ord, created_at, updated_at 
-             FROM order_ord 
+            "SELECT id_ord, user_id_ord, staff_id_ord, order_date_ord, status_ord, amount_ord, discount_amount_ord, created_at, updated_at
+             FROM order_ord
              WHERE id_ord = $1"
         )
         .bind(id)
@@ -72,10 +72,10 @@ impl OrderService {
 
     pub async fn update_order_status(pool: &PgPool, id: i32, status: &str) -> Result<Option<OrderResponse>, sqlx::Error> {
         let row = sqlx::query(
-            "UPDATE order_ord 
-             SET status_ord = $1, updated_at = NOW() 
-             WHERE id_ord = $2 
-             RETURNING id_ord, user_id_ord, order_date_ord, status_ord, amount_ord, created_at, updated_at"
+            "UPDATE order_ord
+             SET status_ord = $1, updated_at = NOW()
+             WHERE id_ord = $2
+             RETURNING id_ord, user_id_ord, staff_id_ord, order_date_ord, status_ord, amount_ord, discount_amount_ord, created_at, updated_at"
         )
         .bind(status)
         .bind(id)
@@ -127,9 +127,9 @@ impl OrderService {
 
     pub async fn get_orders_by_user(pool: &PgPool, user_id: i32) -> Result<Vec<OrderResponse>, sqlx::Error> {
         let rows = sqlx::query(
-            "SELECT id_ord, user_id_ord, order_date_ord, status_ord, amount_ord, created_at, updated_at 
-             FROM order_ord 
-             WHERE user_id_ord = $1 
+            "SELECT id_ord, user_id_ord, staff_id_ord, order_date_ord, status_ord, amount_ord, discount_amount_ord, created_at, updated_at
+             FROM order_ord
+             WHERE user_id_ord = $1
              ORDER BY created_at DESC"
         )
         .bind(user_id)
