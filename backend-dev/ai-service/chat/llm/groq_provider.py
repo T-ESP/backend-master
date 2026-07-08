@@ -4,6 +4,7 @@ from __future__ import annotations
 
 import json
 import os
+import re
 import time
 from typing import Any
 
@@ -21,6 +22,38 @@ logger = get_logger("chat.llm.groq")
 
 class GroqToolArgsError(ValueError):
     """Raised when Groq returns a tool call with unparseable JSON arguments."""
+
+
+# Llama 3.x émet parfois ses tool calls en tags "python-style" au lieu du JSON
+# tool_calls attendu. Groq rejette la génération côté serveur avec
+# `code=tool_use_failed` et met le texte brut dans `failed_generation`.
+# On reparse ces deux formes connues et on ressort un ToolCall propre.
+#
+#   <function=NAME>{"a": 1}</function>       — forme documentée
+#   <function=NAME{"a": 1}</function>        — malformée (angle bracket manquant)
+_LLAMA_TAG_RE = re.compile(
+    r"<function\s*=\s*(?P<name>[A-Za-z_][A-Za-z0-9_]*)\s*>?\s*"
+    r"(?P<args>\{.*?\})\s*"
+    r"(?:</function>|<\|eom_id\|>|$)",
+    re.DOTALL,
+)
+
+
+def _recover_llama_tool_calls(text: str) -> list[ToolCall]:
+    """Extract tool calls from a Llama-style function tag string."""
+    calls: list[ToolCall] = []
+    for i, m in enumerate(_LLAMA_TAG_RE.finditer(text or "")):
+        try:
+            args = json.loads(m.group("args"))
+        except (json.JSONDecodeError, TypeError):
+            continue
+        if isinstance(args, dict):
+            calls.append(ToolCall(
+                id=f"recov_{i}",
+                name=m.group("name"),
+                arguments=args,
+            ))
+    return calls
 
 
 class GroqProvider(LLMProvider):
@@ -72,7 +105,17 @@ class GroqProvider(LLMProvider):
             kwargs["tools"] = api_tools
             kwargs["tool_choice"] = "auto"
 
-        resp = self._client.chat.completions.create(**kwargs)
+        try:
+            resp = self._client.chat.completions.create(**kwargs)
+        except Exception as e:
+            recovered = _try_recover_tool_use_failed(e)
+            if recovered is not None:
+                latency_ms = int((time.time() - start) * 1000)
+                recovered.usage.latency_ms = latency_ms
+                recovered.provider = self.name
+                return recovered
+            raise
+
         latency_ms = int((time.time() - start) * 1000)
 
         choice = resp.choices[0]
@@ -117,6 +160,42 @@ class GroqProvider(LLMProvider):
             provider=self.name,
             finish_reason=finish,
         )
+
+
+def _try_recover_tool_use_failed(exc: Exception) -> ChatResponse | None:
+    """If Groq rejected the completion with `tool_use_failed`, reparse the raw
+    generation from the error body and rebuild a proper ChatResponse.
+
+    Returns None if the exception isn't a `tool_use_failed` we can recover from
+    — the caller should re-raise so the fallback chain runs.
+    """
+    body = getattr(exc, "body", None)
+    if not isinstance(body, dict):
+        return None
+    err = body.get("error") or {}
+    if err.get("code") != "tool_use_failed":
+        return None
+
+    raw = err.get("failed_generation") or ""
+    calls = _recover_llama_tool_calls(raw)
+    if not calls:
+        logger.warning(
+            "Groq tool_use_failed but no recoverable tool calls in failed_generation: %r",
+            raw[:200],
+        )
+        return None
+
+    logger.info(
+        "Groq tool_use_failed recovered — reparsed %d call(s) from python-style tag",
+        len(calls),
+    )
+    return ChatResponse(
+        content="",
+        tool_calls=calls,
+        usage=ChatUsage(),
+        provider="groq",
+        finish_reason="tool_calls",
+    )
 
 
 def _to_groq_msg(m: Message) -> dict[str, Any]:
