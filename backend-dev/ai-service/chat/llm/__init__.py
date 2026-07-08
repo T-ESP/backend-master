@@ -1,4 +1,4 @@
-"""LLM provider adapters: Mistral, Groq, local (llama.cpp)."""
+"""LLM provider adapters: Groq (primary), Mistral (fallback)."""
 
 from .factory import (
     get_provider,

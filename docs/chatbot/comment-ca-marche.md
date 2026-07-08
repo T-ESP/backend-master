@@ -28,7 +28,7 @@ apparaît.
 │  │   4. RAG hybride (vector + keyword + rerank)   │    │
 │  │   5. Compression historique si > 20 messages   │    │
 │  │   6. Boucle outils (3 itérations max)          │    │
-│  │   7. Appel LLM (Mistral / Groq / local)        │    │
+│  │   7. Appel LLM (Groq primaire, Mistral fallback)│    │
 │  └────────────────────────────────────────────────┘    │
 └──────────────┬──────────────────────────────────────────┘
                │
@@ -90,7 +90,7 @@ ne change jamais — donc on la cache. On hash la question normalisée et on
 cherche une réponse identique. Si raté, on cherche une réponse pour une
 question **sémantiquement proche** via embedding (distance cosine < 0.05).
 
-Cache hit → réponse en **< 50 ms** au lieu de **60-180 s** sur LLM local.
+Cache hit → réponse en **< 50 ms** au lieu de **1-3 s** via Groq/Mistral.
 
 #### Étage C — Classification d'intent
 
@@ -171,7 +171,7 @@ Le frontend reçoit :
 {
   "assistant_message": { ...le message complet... },
   "pending_action": null,            // ou { tool_name, tool_args } si confirmation requise
-  "provider_used": "local",          // mistral | groq | local | cache | none
+  "provider_used": "groq",           // groq | mistral | cache | none
   "intent": "doc",                   // doc | data | action | chitchat
   "citations": [                     // sources RAG utilisées (pour les questions doc)
     { "source_path": "docs/ai/AI_MODELS.md", "heading": "ABC Classification", "similarity": 0.89 }

@@ -74,15 +74,11 @@ services:
       DATABASE_URL: postgres://user:${POSTGRES_PASSWORD:?POSTGRES_PASSWORD is required}@db:5432/stocks_master
       STOCKS_API_URL: http://web:8080
       AI_SERVICE_PORT: "8001"
-      # Local-only LLM: Qwen2.5-3B via llama.cpp (no API keys, fully offline).
-      LLM_PROVIDER: "local"
-      LOCAL_LLM_MODEL_PATH: "/app/llm_models/qwen2.5-3b-instruct-q4_k_m.gguf"
-      LOCAL_LLM_MODEL_URL: "https://huggingface.co/Qwen/Qwen2.5-3B-Instruct-GGUF/resolve/main/qwen2.5-3b-instruct-q4_k_m.gguf"
-      LOCAL_LLM_AUTO_DOWNLOAD: "true"
-      LOCAL_LLM_THREADS: "4"
-      LOCAL_LLM_CTX: "8192"
-      # GBNF grammar forces tool-call JSON to be valid even on small models.
-      LOCAL_LLM_USE_GRAMMAR: "true"
+      # LLM providers: Groq (primary, Llama-3.3-70B) + Mistral (auto-fallback).
+      LLM_PROVIDER: "groq"
+      GROQ_API_KEY: ${GROQ_API_KEY:?GROQ_API_KEY is required}
+      GROQ_MODEL: ${GROQ_MODEL:-llama-3.3-70b-versatile}
+      MISTRAL_API_KEY: ${MISTRAL_API_KEY:-}
       # RAG: index the shared corpus into the master DB on startup.
       EMBED_MODEL: "sentence-transformers/paraphrase-multilingual-MiniLM-L12-v2"
       RAG_CORPUS_PATHS: "/app/corpus"
@@ -96,7 +92,6 @@ services:
       - "8001:8001"
     volumes:
       - ai_models:/app/saved_models
-      - llm_models:/app/llm_models
       - embed_cache:/app/embed_cache
       - ./docs:/app/corpus/docs:ro
       - ./guide_bdd_migrations.md:/app/corpus/guide_bdd_migrations.md:ro
@@ -119,5 +114,4 @@ volumes:
   db_data:
   pgadmin_data:
   ai_models:
-  llm_models:
   embed_cache:

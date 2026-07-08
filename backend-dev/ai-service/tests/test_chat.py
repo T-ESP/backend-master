@@ -1,4 +1,4 @@
-﻿"""Unit tests for the chat module — pieces that don't need DB / network."""
+"""Unit tests for the chat module — pieces that don't need DB / network."""
 
 from __future__ import annotations
 
@@ -133,51 +133,6 @@ def test_message_to_dict_roundtrip():
 
 
 # ---------------------------------------------------------------------------
-# chat.llm.local_provider — tool-call extraction
-# ---------------------------------------------------------------------------
-
-def test_local_provider_splits_tool_call():
-    from chat.llm.local_provider import _split_tool_calls
-    raw = (
-        'Je vais regarder le stock.\n'
-        '<tool_call>{"name": "get_low_stock", "arguments": {}}</tool_call>'
-    )
-    visible, calls = _split_tool_calls(raw)
-    assert "Je vais regarder" in visible
-    assert "<tool_call>" not in visible
-    assert len(calls) == 1
-    assert calls[0].name == "get_low_stock"
-    assert calls[0].arguments == {}
-
-
-def test_local_provider_no_tool_call():
-    from chat.llm.local_provider import _split_tool_calls
-    visible, calls = _split_tool_calls("Réponse simple.")
-    assert visible == "Réponse simple."
-    assert calls == []
-
-
-def test_local_provider_multiple_tool_calls():
-    from chat.llm.local_provider import _split_tool_calls
-    raw = (
-        '<tool_call>{"name": "a", "arguments": {"x": 1}}</tool_call>\n'
-        '<tool_call>{"name": "b", "arguments": {"y": 2}}</tool_call>'
-    )
-    visible, calls = _split_tool_calls(raw)
-    assert visible == ""
-    assert [c.name for c in calls] == ["a", "b"]
-
-
-def test_local_provider_malformed_json_skipped():
-    from chat.llm.local_provider import _split_tool_calls
-    raw = '<tool_call>{not json}</tool_call> ok'
-    visible, calls = _split_tool_calls(raw)
-    # Malformed call is dropped; visible text loses the tag.
-    assert "ok" in visible
-    assert calls == []
-
-
-# ---------------------------------------------------------------------------
 # chat.tools.registry — catalog shape
 # ---------------------------------------------------------------------------
 
@@ -242,15 +197,15 @@ def test_factory_lists_all_providers(monkeypatch):
     f._INSTANCES.clear()
     out = f.list_providers()
     names = [p["name"] for p in out]
-    assert names == ["mistral", "groq", "local"]
-    # With no keys and no model file, mistral/groq are unavailable.
+    assert names == ["groq", "mistral"]
+    # With no keys, both providers are unavailable.
     by_name = {p["name"]: p for p in out}
-    assert by_name["mistral"]["available"] is False
     assert by_name["groq"]["available"] is False
+    assert by_name["mistral"]["available"] is False
 
 
 # ---------------------------------------------------------------------------
-# 2026-05-09 improvements: shortcuts, grammar, new tools, citations
+# 2026-05-09 improvements: shortcuts, new tools, citations
 # ---------------------------------------------------------------------------
 
 def test_shortcut_low_stock():
@@ -292,27 +247,6 @@ def test_shortcut_returns_none_for_open_question():
     assert match("Salut !") is None
 
 
-def test_grammar_base_includes_tool_call_envelope():
-    from chat.llm.grammar import build_grammar
-    g = build_grammar()
-    assert "<tool_call>" in g
-    assert "</tool_call>" in g
-    assert "root" in g
-    # Doesn't crash with a bare tool list
-    g2 = build_grammar([])
-    assert "<tool_call>" in g2
-
-
-def test_grammar_strict_constrains_tool_names():
-    from chat.llm.grammar import build_strict_grammar
-    from chat.types import ToolSpec
-    g = build_strict_grammar([ToolSpec(name="foo", description="x"),
-                              ToolSpec(name="bar", description="y")])
-    # The grammar should reference both tool names as alternatives
-    assert "foo" in g
-    assert "bar" in g
-
-
 def test_new_tools_registered():
     from chat.tools import catalog
     names = {t.name for t in catalog()}
@@ -337,12 +271,9 @@ def test_intent_keeps_doc_for_concept_questions():
     assert classify("Liste les alertes critiques") == "data"
 
 
-def test_factory_raises_when_nothing_configured(monkeypatch, tmp_path):
+def test_factory_raises_when_nothing_configured(monkeypatch):
     monkeypatch.delenv("MISTRAL_API_KEY", raising=False)
     monkeypatch.delenv("GROQ_API_KEY", raising=False)
-    monkeypatch.setenv("LOCAL_LLM_AUTO_DOWNLOAD", "false")
-    # Point local model path to a non-existent file.
-    monkeypatch.setenv("LOCAL_LLM_MODEL_PATH", str(tmp_path / "nope.gguf"))
     import chat.llm.factory as f
     f._INSTANCES.clear()
     import pytest

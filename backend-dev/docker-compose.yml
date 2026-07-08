@@ -61,6 +61,11 @@ services:
       CRON_SCHEDULE: "0 2 * * *"
       RUN_ON_STARTUP: "true"
       AI_SERVICE_PORT: "8001"
+      # Chatbot LLM providers (optional in this dev compose — set in .env to enable).
+      LLM_PROVIDER: ${LLM_PROVIDER:-groq}
+      GROQ_API_KEY: ${GROQ_API_KEY:-}
+      GROQ_MODEL: ${GROQ_MODEL:-llama-3.3-70b-versatile}
+      MISTRAL_API_KEY: ${MISTRAL_API_KEY:-}
     ports:
       - "8001:8001"
     volumes:

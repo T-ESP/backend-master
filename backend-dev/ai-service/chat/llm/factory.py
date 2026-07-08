@@ -1,24 +1,24 @@
 """Provider factory + auto-fallback chain.
 
-Singletons are kept so the local model is loaded only once.
+Groq is primary (fast, generous free tier, reliable tool calling);
+Mistral is the auto-fallback for rate limits or transient errors.
 """
 
 from __future__ import annotations
 
 import os
 import threading
-from typing import Iterator, Literal
+from typing import Literal
 
 from utils.logger import get_logger
 
-from ..types import ChatResponse, Message, StreamChunk, ToolSpec
+from ..types import ChatResponse, Message, ToolSpec
 from .base import LLMProvider
 from .groq_provider import GroqProvider
-from .local_provider import LocalLLMProvider
 from .mistral_provider import MistralProvider
 
 
-ProviderName = Literal["mistral", "groq", "local", "auto"]
+ProviderName = Literal["groq", "mistral", "auto"]
 
 logger = get_logger("chat.llm")
 
@@ -26,8 +26,8 @@ _INSTANCES: dict[str, LLMProvider] = {}
 _LOCK = threading.Lock()
 
 
-# Order in which `auto` mode tries providers (cheapest / most reliable first).
-_AUTO_CHAIN: list[str] = ["mistral", "groq", "local"]
+# Order in which `auto` mode tries providers (fastest / most reliable first).
+_AUTO_CHAIN: list[str] = ["groq", "mistral"]
 
 
 class LLMUnavailableError(RuntimeError):
@@ -38,12 +38,10 @@ def _instance(name: str) -> LLMProvider:
     with _LOCK:
         if name in _INSTANCES:
             return _INSTANCES[name]
-        if name == "mistral":
-            inst: LLMProvider = MistralProvider()
-        elif name == "groq":
-            inst = GroqProvider()
-        elif name == "local":
-            inst = LocalLLMProvider()
+        if name == "groq":
+            inst: LLMProvider = GroqProvider()
+        elif name == "mistral":
+            inst = MistralProvider()
         else:
             raise ValueError(f"Unknown provider: {name}")
         _INSTANCES[name] = inst
@@ -53,7 +51,7 @@ def _instance(name: str) -> LLMProvider:
 def list_providers() -> list[dict]:
     """Snapshot of provider availability — used by /llm/health."""
     out = []
-    for name in ("mistral", "groq", "local"):
+    for name in _AUTO_CHAIN:
         try:
             avail = _instance(name).is_available()
         except Exception as e:
@@ -75,7 +73,7 @@ def provider_health() -> dict:
 
 def _resolve_default() -> str:
     requested = (os.getenv("LLM_PROVIDER") or "auto").lower()
-    if requested in ("mistral", "groq", "local"):
+    if requested in _AUTO_CHAIN:
         return requested
     return "auto"
 
@@ -89,7 +87,7 @@ def get_provider(preference: ProviderName | None = None) -> LLMProvider:
     """
     pref = (preference or _resolve_default()).lower()
 
-    if pref in ("mistral", "groq", "local"):
+    if pref in _AUTO_CHAIN:
         inst = _instance(pref)
         if inst.is_available():
             return inst
@@ -103,9 +101,7 @@ def get_provider(preference: ProviderName | None = None) -> LLMProvider:
             return inst
         last_err = f"{name} unavailable"
     raise LLMUnavailableError(
-        f"No LLM provider configured. Set MISTRAL_API_KEY, GROQ_API_KEY, "
-        f"or provide the local model at {os.getenv('LOCAL_LLM_MODEL_PATH', '')}. "
-        f"({last_err})"
+        f"No LLM provider configured. Set GROQ_API_KEY or MISTRAL_API_KEY. ({last_err})"
     )
 
 
@@ -122,7 +118,7 @@ def chat_with_fallback(
     """
     pref = (preference or _resolve_default()).lower()
     chain: list[str]
-    if pref in ("mistral", "groq", "local"):
+    if pref in _AUTO_CHAIN:
         # Preferred first, then everything else as fallback.
         chain = [pref] + [n for n in _AUTO_CHAIN if n != pref]
     else:

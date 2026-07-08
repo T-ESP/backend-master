@@ -67,7 +67,7 @@ def chat_turn() -> Response:
           "user_jwt": str,
           "user_id": int,
           "session_id": str,
-          "provider": "auto" | "mistral" | "groq" | "local" | null,
+          "provider": "auto" | "groq" | "mistral" | null,
           "proactive_summary": str | null
         }
 
@@ -185,8 +185,8 @@ def chat_turn_stream() -> Response:
             yield _sse("cached", {"provider": result.provider_used})
 
         # Single-chunk "delta" — real token-by-token streaming is provider-
-        # specific (see local_provider.chat_stream / Mistral SDK). The frontend
-        # protocol is identical either way, so we can upgrade later transparently.
+        # specific (Groq / Mistral SDK). The frontend protocol is identical
+        # either way, so we can upgrade later transparently.
         if result.content:
             yield _sse("delta", {"content": result.content})
 

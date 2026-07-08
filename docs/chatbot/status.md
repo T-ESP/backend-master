@@ -1,7 +1,7 @@
 # Chatbot — État de l'implémentation
 
 **Branche :** `chatbot`
-**Date dernière mise à jour :** 2026-05-09
+**Date dernière mise à jour :** 2026-07-08
 
 ## Ce qui est fait et vérifié
 
@@ -11,10 +11,10 @@
 - [Spec améliorations 2026-05-09](../superpowers/specs/2026-05-09-chatbot-improvements.md) — second tour d'améliorations.
 - [V002__chat_and_rag.sql](../../stocks_api/migrations/V002__chat_and_rag.sql) — extension pgvector + 5 tables.
 - [V003__chat_improvements.sql](../../stocks_api/migrations/V003__chat_improvements.sql) — hybrid search, cache, summaries.
-- [docker-compose.yml](../../docker-compose.yml) — DB en `pgvector/pgvector:pg16`, volume LLM, mounts docs.
+- [docker-compose.yml](../../docker-compose.yml) — DB en `pgvector/pgvector:pg16`, mounts docs.
 - [`ai-service/chat/`](../../ai-service/chat/) — module Python complet :
   - `types.py` — Message / ToolCall / ToolSpec / ChatResponse agnostiques.
-  - `llm/` — interface `base`, `mistral_provider`, `groq_provider`, `local_provider` (Qwen2.5-3B + GBNF grammar), `factory` avec auto-fallback.
+  - `llm/` — interface `base`, `groq_provider` (primaire, Llama-3.3-70B), `mistral_provider` (fallback), `factory` avec auto-fallback.
   - `rag/` — embedder MiniLM, chunker markdown, indexer incrémental, retriever vector + keyword (hybrid) + reranker BGE.
   - `tools/` — 14 outils dont 13 read-only et 1 write (`trigger_ai_run`).
   - `agent/` — shortcuts déterministes, cache de réponses, compression historique, intent router, orchestrator avec boucle outils.
@@ -34,39 +34,26 @@
 ### État du build
 
 - `backend-web` (Rust) — build clean ✓
-- `backend-ai-service` (Python + llama.cpp) — build clean ✓ (~9.3 GB image)
+- `backend-ai-service` (Python) — image allégée après retrait de llama-cpp-python
 - DB en place, migrations V001 + V002 + V003 appliquées ✓
 - Extension pgvector + 5 tables chat/RAG + 2 tables d'amélioration + 1 vue ✓
 - Login + JWT fonctionnent ✓
-- 32 tests Python passent dans le container ✓
 
-### Vérifications live (2026-05-09)
+## Changement 2026-07-08 — retrait du provider local
 
-- `/admin/chat/providers` — provider local disponible, Mistral/Groq indisponibles (pas de clés, attendu) ✓
-- `/rag/stats` — 14 documents, 444 chunks indexés (MiniLM multilingue) ✓
-- **Qwen2.5-3B-Instruct** téléchargé (2007 MiB) et chargé ✓
-- **Chitchat** : « Salut ! » → « Bonjour ! Comment puis-je vous aider aujourd'hui ? » (1.1 s, 11 tokens) ✓
-- **Doc/RAG** : « Que signifie la classification ABC-XYZ ? » → réponse française complète tirée des chunks `AI_MODELS.md` (68 s sur 3 cœurs, 672 tokens) ✓
-- **Raccourci** : « Quels produits sont en stock bas ? » → `shortcut_used: get_low_stock` → liste française propre de 13 produits ✓
-- **Cache** : même question doc 2 fois → 1er appel 171 s, **2e appel 0 ms, `cached: true`** ✓
-- **Citations** : 4 sources retournées avec `source_path` ✓
+Le provider local (Qwen2.5 via llama.cpp) a été retiré (voir factory / compose).
+Raisons :
+
+- Qualité tool-calling insuffisante sur 1.5B–3B pour un usage sérieux, même
+  avec GBNF grammar et few-shot.
+- Latence CPU (5–20 s/tour) inacceptable vs Groq (< 1 s).
+- Poids : ~2 GB de modèle GGUF + `llama-cpp-python` gonflaient l'image d'env.
+  ~7 GB et alourdissaient les builds.
+
+Défaut désormais : Groq (Llama-3.3-70B) en primaire, Mistral en fallback si
+`MISTRAL_API_KEY` est défini.
 
 ## Limitations connues
-
-### Tool-calling sur petits LLM locaux
-
-Sans clé Mistral/Groq, un Qwen 1.5B (ou variantes ~1B-2B) tend à dire
-*« Je vais chercher »* sans réellement émettre l'appel d'outil structuré.
-Trois mécanismes atténuent ça :
-
-1. **Raccourcis déterministes** (régex → outil direct) pour les 10-15
-   questions courantes — 100 % fiable.
-2. **Grammaire GBNF** qui force le JSON valide dans le décodeur llama.cpp.
-3. **Few-shot examples** dans le prompt système.
-
-Combinaison : utilisable même sur 1.5B. Pour passer à 3B+ (qualité encore
-meilleure), changer simplement `LOCAL_LLM_MODEL_URL` — voir
-[modeles.md](modeles.md).
 
 ### Streaming SSE — non implémenté
 
@@ -116,4 +103,3 @@ d'améliorations le plus récent. Pistes encore ouvertes :
   d'intégration)
 - Quotas par utilisateur basés sur `v_chat_usage_daily`
 - Reranker plus précis (BGE-reranker-v2-gemma, 4 GB) pour les VPS gros
-- Modèle local plus puissant si la machine le permet (Qwen2.5-7B, Llama-3.1-8B)

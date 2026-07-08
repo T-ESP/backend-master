@@ -1,7 +1,7 @@
 """Chatbot module for ai-service.
 
 Adds conversational AI on top of the existing batch ML service:
-- LLM provider abstraction (Mistral, Groq, local llama.cpp)
+- LLM provider abstraction (Groq primary, Mistral fallback)
 - RAG over project documentation (pgvector + multilingual MiniLM)
 - Tool-use agent that wraps the existing stocks_api endpoints
 - Action-confirmation gate for write operations

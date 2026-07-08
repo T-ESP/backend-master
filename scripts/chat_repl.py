@@ -9,7 +9,7 @@ Usage :
 Commandes spéciales (dans le REPL) :
     /quit         — quitter
     /new          — nouvelle session
-    /provider X   — changer le provider (auto | mistral | groq | local)
+    /provider X   — changer le provider (auto | groq | mistral)
     /history      — voir l'historique de la session courante
     /export       — exporter la conversation en markdown
 """
@@ -200,7 +200,7 @@ if __name__ == "__main__":
     p.add_argument("--prompt", action="store_true",
                    help="Demander le mot de passe interactivement")
     p.add_argument("--provider", default="auto",
-                   choices=["auto", "mistral", "groq", "local"])
+                   choices=["auto", "groq", "mistral"])
     args = p.parse_args()
 
     if args.prompt:

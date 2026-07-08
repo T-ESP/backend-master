@@ -16,7 +16,7 @@ stocks_api (Rust, :8090)   ← tu parles uniquement à ça
       ▼
 ai-service (Python, :8001) ← invisible pour le front
       │
-      ├─ LLM local / Mistral / Groq
+      ├─ LLM Groq (primaire) / Mistral (fallback)
       ├─ RAG (pgvector)
       └─ 33 outils → PostgreSQL / API interne
 ```
@@ -98,9 +98,9 @@ Content-Type: application/json
 { "title": null, "provider": "auto" }
 ```
 
-`provider` : `"auto"` | `"mistral"` | `"groq"` | `"local"`. Avec `"auto"`,
-le serveur choisit le meilleur disponible. Garde le `session_id` retourné —
-tu en as besoin pour tous les appels suivants.
+`provider` : `"auto"` | `"groq"` | `"mistral"`. Avec `"auto"`,
+le serveur choisit le meilleur disponible (Groq d'abord, Mistral si indispo).
+Garde le `session_id` retourné — tu en as besoin pour tous les appels suivants.
 
 ```jsonc
 {
@@ -127,7 +127,7 @@ Content-Type: application/json
 ```
 
 Attend la réponse complète (~0,5 s pour les réponses déterministes,
-~40 s pour le modèle local, ~2 s pour Mistral/Groq).
+~1-2 s via Groq, ~2-4 s si fallback Mistral).
 
 #### Mode SSE (recommandé en production)
 
@@ -194,7 +194,7 @@ notifications au fil de la génération — plus fluide pour l'utilisateur.
     ],
 
     // ── Métadonnées ────────────────────────────────────────────
-    "provider_used": "deterministic",   // mistral | groq | local | deterministic | cache
+    "provider_used": "deterministic",   // groq | mistral | deterministic | cache
     "intent": "data",                   // doc | data | action | chitchat
     "cached": false,
     "shortcut_used": "get_top_product_full",  // ou null
@@ -417,23 +417,11 @@ Dès l'envoi du message, affiche un spinner « L'assistant réfléchit… ».
 Avec SSE, remplace par les labels d'événements (`intent`, `tool_call`…).
 Désactive le champ de saisie jusqu'à réception de l'événement `done`.
 
-### 9.2 Premier lancement — modèle local
-
-Le **tout premier** message peut prendre 2–5 minutes : le modèle (~2 GB)
-se télécharge puis se charge en RAM. Affiche un message explicite :
-
-```
-⏳ Initialisation du modèle local… (peut prendre 2 minutes la première fois)
-```
-
-Conseil : envoyer un ping invisible `"salut"` dès l'ouverture de la page
-pour préchauffer le modèle avant que l'utilisateur pose sa vraie question.
-
-### 9.3 Action en attente
+### 9.2 Action en attente
 
 Voir section 7. Afficher les boutons Confirmer / Annuler.
 
-### 9.4 Réponse suspecte — `numbers_verified: false`
+### 9.3 Réponse suspecte — `numbers_verified: false`
 
 Le garde-fou a détecté que des chiffres dans la réponse ne correspondent
 pas aux données. Ajoute un avertissement discret :
@@ -444,7 +432,7 @@ pas aux données. Ajoute un avertissement discret :
 
 Ne supprime pas la réponse — informe seulement.
 
-### 9.5 Erreur réseau / ai-service down
+### 9.4 Erreur réseau / ai-service down
 
 `502 Bad Gateway` → toast « Service IA temporairement indisponible » +
 bouton **Réessayer** qui re-soumet le même message.
@@ -458,9 +446,8 @@ bouton **Réessayer** qui re-soumet le même message.
 | Valeur | Affichage suggéré |
 |---|---|
 | `"deterministic"` | ⚡ Réponse directe |
-| `"local"` | 🔒 Via modèle local |
-| `"mistral"` | ☁️ Via Mistral |
 | `"groq"` | ☁️ Via Groq |
+| `"mistral"` | ☁️ Via Mistral (fallback) |
 | `"cache"` | 💾 Réponse mise en cache |
 
 ### `intent`
@@ -520,11 +507,10 @@ GET /chat/provider-health
 ```jsonc
 {
   "data": {
-    "default": "auto",
+    "default": "groq",
     "providers": [
-      { "name": "mistral", "available": false, "error": null },
-      { "name": "groq",    "available": false, "error": null },
-      { "name": "local",   "available": true,  "error": null }
+      { "name": "groq",    "available": true,  "error": null },
+      { "name": "mistral", "available": false, "error": null }
     ]
   }
 }
@@ -792,7 +778,6 @@ Enrichissements
   [ ] Bouton Supprimer la conversation
   [ ] Bouton Exporter en markdown
   [ ] Indicateur état des LLM (GET /chat/provider-health)
-  [ ] Message "modèle local, ~2 min la première fois"
 ```
 
 ---
