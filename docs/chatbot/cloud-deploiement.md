@@ -10,9 +10,9 @@ et les éléments à durcir avant l'ouverture publique.
 
 | Élément | Valeur |
 |---|---|
-| RAM | **8 GB** (4 GB suffisent si on désactive le LLM local) |
-| CPU | 4 cœurs (3 cœurs OK) |
-| Disque | **20 GB SSD libre** |
+| RAM | **4 GB** (l'inférence LLM est déléguée à Groq/Mistral) |
+| CPU | 2 cœurs |
+| Disque | **10 GB SSD libre** |
 | Bande passante | 100 Mbps suffisent largement |
 | OS | Ubuntu 22.04 / 24.04 LTS, Debian 12 |
 
@@ -20,14 +20,10 @@ et les éléments à durcir avant l'ouverture publique.
 
 | Fournisseur | Offre exemple | Prix indicatif | Notes |
 |---|---|---|---|
-| **Hetzner Cloud** | CPX21 (3 vCPU AMD, 4 GB, 80 GB SSD) | ~6 €/mois | Sans LLM local |
-| **Hetzner Cloud** | CPX31 (4 vCPU AMD, 8 GB, 160 GB SSD) | ~11 €/mois | **Recommandé** |
-| **OVH VPS** | VPS Comfort (4 vCPU, 8 GB, 160 GB) | ~12 €/mois | France |
+| **Hetzner Cloud** | CPX21 (3 vCPU AMD, 4 GB, 80 GB SSD) | ~6 €/mois | **Recommandé** |
+| **OVH VPS** | VPS Value (2 vCPU, 4 GB, 80 GB) | ~7 €/mois | France |
 | **Scaleway** | DEV1-M (3 vCPU, 4 GB, 40 GB SSD) | ~10 €/mois | France |
 | **Contabo** | VPS S (4 vCPU, 8 GB, 200 GB) | ~6 €/mois | Bon rapport mais réseau parfois lent |
-
-Pour un usage uniquement basé sur les API LLM (Mistral/Groq), un VPS 4 GB
-suffit largement.
 
 ## 2. Préparation du serveur
 
@@ -86,12 +82,14 @@ cp .env.chatbot.example .env
 # JWT (générer un secret long)
 JWT_SECRET=<openssl rand -hex 32>
 
-# Provider LLM
-LLM_PROVIDER=auto
+# Provider LLM (Groq primaire, Mistral en fallback)
+LLM_PROVIDER=groq
 
-# Clés API (recommandé même si LLM local actif, pour fallback rapide)
-MISTRAL_API_KEY=ta-clef-mistral
+# Clé Groq requise (Llama-3.3-70B, free tier)
 GROQ_API_KEY=ta-clef-groq
+
+# Optionnel : Mistral pour l'auto-fallback si Groq 429
+MISTRAL_API_KEY=ta-clef-mistral
 
 # Database
 POSTGRES_PASSWORD=<openssl rand -hex 16>
@@ -105,7 +103,7 @@ POSTGRES_PASSWORD=<openssl rand -hex 16>
 ## 4. Premier démarrage
 
 ```sh
-# Build des images (~15-30 min — llama-cpp-python compile)
+# Build des images (~2-5 min)
 docker compose build
 
 # Démarrer tout
@@ -121,8 +119,8 @@ Au premier démarrage :
 2. Migrate applique V001 + V002 + V003 (~2 s)
 3. Seed insère les données démo (~5-10 min — bcrypt-hash de 850 users)
 4. Web démarre (instantané)
-5. ai-service démarre → télécharge le modèle local (~2 GB, 5-10 min selon
-   connexion) → charge le modèle (~10 s) → indexe le RAG (~30 s)
+5. ai-service démarre → indexe le RAG (~30 s) → prêt à servir les requêtes
+   (aucun modèle LLM à charger localement)
 6. Stack prête
 
 Vérification rapide :
@@ -272,14 +270,9 @@ sudo crontab -e
 0 4 * * * find /backups -name "stocks-*.sql.gz" -mtime +14 -delete
 ```
 
-### Volumes Docker (modèles LLM, embeddings)
+### Volumes Docker (embeddings)
 
-Pas besoin de backup : tout est re-téléchargeable. Mais si le réseau est
-lent, sauvegarde au moins le LLM local :
-
-```sh
-sudo tar -czf /backups/llm_models.tar.gz /var/lib/docker/volumes/backend_llm_models
-```
+Pas besoin de backup : le cache HuggingFace se retéléchargera au premier boot.
 
 ## 9. Surveillance / observabilité
 
@@ -302,8 +295,8 @@ le même compose (1 GB de RAM en plus).
 
 ### Alertes
 
-Si la RAM de ai-service dépasse 5 GB, le LLM local est probablement chargé
-en double (bug) ou un modèle plus gros que prévu. Configurer une alerte
+Si la RAM de ai-service dépasse 2 GB, le reranker est probablement mal
+libéré ou un cache HuggingFace grossit trop. Configurer une alerte
 mail / Slack sur `docker stats`.
 
 ## 10. Mises à jour applicatives
@@ -336,7 +329,7 @@ sudo apt update && sudo apt upgrade docker-ce docker-ce-cli containerd.io
 
 - [ ] `JWT_SECRET` long et aléatoire, **différent du dev**
 - [ ] `POSTGRES_PASSWORD` long et aléatoire, **différent du dev**
-- [ ] Mistral / Groq API keys présentes pour les fallbacks
+- [ ] `GROQ_API_KEY` présente (requise) ; `MISTRAL_API_KEY` pour fallback
 - [ ] UFW activé, seul `22/80/443` ouvert
 - [ ] SSH par clé seulement, désactiver `PasswordAuthentication`
 - [ ] `fail2ban` actif pour bloquer les brute-force SSH
@@ -371,17 +364,16 @@ charge ML à chaque restart, ce qui peut prendre 15 minutes. À mettre à
 Le bot est conçu pour un usage interne (< 100 utilisateurs concurrents).
 Si tu dépasses :
 
-1. **Activer Mistral + Groq en priorité** (mettre `LLM_PROVIDER=auto`),
-   laisser local en pure fallback. Plus de RAM consommée par le serveur.
-2. **Augmenter le nombre de workers Flask** : ajouter `gunicorn` devant
-   Flask avec 2-4 workers. Permet de servir plusieurs requêtes en
-   parallèle (utile surtout avec providers API).
-3. **Réplique horizontale** : 2-3 instances d'ai-service derrière un load
+1. **Augmenter le nombre de workers Flask** : ajouter `gunicorn` devant
+   Flask avec 2-4 workers. Permet de servir plusieurs requêtes en parallèle.
+2. **Réplique horizontale** : 2-3 instances d'ai-service derrière un load
    balancer. Postgres reste partagée.
-4. **Cache plus agressif** : baisser `CHAT_CACHE_THRESHOLD` pour absorber
+3. **Cache plus agressif** : baisser `CHAT_CACHE_THRESHOLD` pour absorber
    plus de variantes de questions.
-5. **Modèle plus puissant côté Groq** : déjà du 70B en latence 1s, monter
-   un niveau ne se fait pas vraiment.
+4. **Modèle Groq plus rapide** : passer à `llama-3.1-8b-instant` pour
+   absorber plus de RPM (plus rapide, moins de tokens/s consommés).
+5. **Upgrader vers un plan Groq/Mistral payant** si les free tiers ne
+   suffisent plus.
 
 ## 16. Coûts opérationnels indicatifs
 
@@ -389,16 +381,14 @@ Pour un déploiement type :
 
 | Poste | Coût mensuel |
 |---|---|
-| VPS Hetzner CPX31 (8 GB) | ~11 € |
+| VPS Hetzner CPX21 (4 GB) | ~6 € |
 | Nom de domaine + DNS | ~1 € |
 | Backups stockés ailleurs (S3 / B2) | ~1 € |
-| Mistral API (plan gratuit suffit < 1M tok/mois) | 0 € |
-| Groq API (plan gratuit) | 0 € |
-| **Total** | **~13 €/mois** |
+| Groq API (plan gratuit, 1M tok/jour Llama-3.3-70B) | 0 € |
+| Mistral API (plan gratuit, fallback) | 0 € |
+| **Total** | **~8 €/mois** |
 
-Si la charge grimpe et qu'on dépasse le plan gratuit Mistral :
-~7 €/M tokens. Pour 100 utilisateurs actifs faisant 30 messages/jour de
-~500 tokens, on parle de ~45 M tokens/mois → ~315 €/mois.
-
-À ce niveau-là, on bascule sur le LLM local + un peu de Groq pour les pics,
-et le coût retombe à ~15 €/mois.
+Si la charge grimpe et qu'on dépasse le free tier Groq (~30 req/min,
+1M tok/jour), on peut basculer sur le plan payant (~0.6 $/M tokens input,
+~0.8 $/M output). Pour 100 utilisateurs actifs faisant 30 messages/jour de
+~1500 tokens (in+out), on parle de ~135 M tokens/mois → ~85 €/mois.

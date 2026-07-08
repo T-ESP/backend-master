@@ -1,9 +1,9 @@
 # Chatbot StockS — Démarrage rapide
 
 Assistant conversationnel français qui s'intègre à l'API StockS existante.
-Parle à une couche LLM multi-providers (Mistral, Groq ou un modèle local
-llama.cpp), récupère du contexte dans la doc projet via RAG pgvector, et
-appelle les endpoints API existants comme outils.
+Parle à une couche LLM Groq (primaire) + Mistral (fallback), récupère du
+contexte dans la doc projet via RAG pgvector, et appelle les endpoints API
+existants comme outils.
 
 ## Où se trouve quoi
 
@@ -11,15 +11,15 @@ appelle les endpoints API existants comme outils.
 - Python (RAG, providers, outils, agent) : [`ai-service/chat/`](../../ai-service/chat/)
 - Module Rust (sessions, messages, admin) : [`stocks_api/src/features/chat/`](../../stocks_api/src/features/chat/)
 - Migrations : [`V002__chat_and_rag.sql`](../../stocks_api/migrations/V002__chat_and_rag.sql), [`V003__chat_improvements.sql`](../../stocks_api/migrations/V003__chat_improvements.sql)
-- docker-compose : utilise `pgvector/pgvector:pg16`, monte les docs, gère le volume LLM
+- docker-compose : utilise `pgvector/pgvector:pg16`, monte les docs
 
 ## Lancer
 
 1. Copier le template d'env :
    ```sh
    cp .env.chatbot.example .env
-   # Optionnel : coller une clé Mistral ou Groq. Sans clés, seul le provider
-   # local est utilisé (téléchargement automatique ~2 GB au premier démarrage).
+   # Requis : GROQ_API_KEY (gratuit sur https://console.groq.com).
+   # Optionnel : MISTRAL_API_KEY pour l'auto-fallback en cas de 429 Groq.
    ```
 
 2. Monter la stack :
@@ -28,7 +28,6 @@ appelle les endpoints API existants comme outils.
    ```
 
 3. Au premier démarrage, ai-service :
-   - télécharge **Qwen2.5-3B-Instruct** (~2 GB, one-time, dans le volume `llm_models`)
    - télécharge l'embedder multilingue MiniLM (~120 MB, dans `embed_cache`)
    - télécharge le reranker BGE-reranker-v2-m3 (~280 MB)
    - indexe tous les `*.md` du `/app/corpus` (monté depuis `docs/` etc.)
@@ -98,7 +97,7 @@ curl -s -X POST "http://localhost:8090/chat/sessions/$SID/messages" \
   -d '{"content":"Top 3 catégories ?", "provider":"groq"}'
 ```
 
-`provider` accepte `auto | mistral | groq | local`.
+`provider` accepte `auto | groq | mistral`.
 
 ## Outils disponibles pour le bot
 
@@ -125,15 +124,13 @@ curl -s -X POST "http://localhost:8090/chat/sessions/$SID/messages" \
 
 ## Mémoire / RAM
 
-VPS 8 GB, plafond visé à 5 GB. Pire cas :
+VPS 8 GB — plafond très confortable depuis le retrait du LLM local :
 
 | État | Total |
 |---|---|
-| Idle | ~1.8 GB |
-| Chat actif (provider API) | ~1.9 GB |
-| Chat actif (LLM local Qwen 3B) | ~4.7 GB |
-| Cron ML + chat local actif | ~6.2 GB ⚠ |
+| Idle | ~1.5 GB |
+| Chat actif (Groq / Mistral) | ~1.9 GB |
+| Cron ML + chat actif | ~2.6 GB |
 
-Mitigation : `POST /ai/run` décharge le LLM local avant de lancer les jobs
-batch (rechargement ~10 s après). Le modèle local n'est chargé qu'au premier
-appel — ai-service idle reste léger.
+Les LLM tournent côté Groq/Mistral, donc plus rien de lourd à charger côté
+ai-service — seuls l'embedder MiniLM et le reranker BGE restent en RAM.
