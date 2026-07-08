@@ -7,11 +7,20 @@ import os
 import time
 from typing import Any
 
+from utils.logger import get_logger
+
 from ..types import ChatResponse, ChatUsage, Message, ToolCall, ToolSpec
 from .base import LLMProvider
 
 
 DEFAULT_MODEL = os.getenv("GROQ_MODEL", "llama-3.3-70b-versatile")
+DEFAULT_TIMEOUT_S = float(os.getenv("GROQ_TIMEOUT_S", "15"))
+
+logger = get_logger("chat.llm.groq")
+
+
+class GroqToolArgsError(ValueError):
+    """Raised when Groq returns a tool call with unparseable JSON arguments."""
 
 
 class GroqProvider(LLMProvider):
@@ -47,12 +56,17 @@ class GroqProvider(LLMProvider):
         api_messages = [_to_groq_msg(m) for m in messages]
         api_tools = [t.to_openai_schema() for t in tools] if tools else None
 
+        # Temperature > 0 fait varier le choix d'outil pour la même question ;
+        # Groq/Meta recommandent 0 en tool mode pour un routage déterministe.
+        effective_temp = 0.0 if api_tools else temperature
+
         start = time.time()
         kwargs: dict[str, Any] = {
             "model": self._model,
             "messages": api_messages,
             "max_tokens": max_tokens,
-            "temperature": temperature,
+            "temperature": effective_temp,
+            "timeout": DEFAULT_TIMEOUT_S,
         }
         if api_tools:
             kwargs["tools"] = api_tools
@@ -63,6 +77,12 @@ class GroqProvider(LLMProvider):
 
         choice = resp.choices[0]
         content = choice.message.content or ""
+        finish = choice.finish_reason or "stop"
+
+        # Réponse coupée à max_tokens : le signaler dans le contenu pour ne pas
+        # renvoyer une phrase inachevée comme si elle était complète.
+        if finish == "length" and content:
+            content = content.rstrip() + " …(réponse tronquée — max_tokens atteint)"
 
         tool_calls: list[ToolCall] | None = None
         raw_tcs = getattr(choice.message, "tool_calls", None)
@@ -72,8 +92,16 @@ class GroqProvider(LLMProvider):
                 args_raw = tc.function.arguments
                 try:
                     args = json.loads(args_raw) if args_raw else {}
-                except (json.JSONDecodeError, TypeError):
-                    args = {}
+                except (json.JSONDecodeError, TypeError) as e:
+                    # Ne PAS avaler l'erreur en args={} : le tool serait appelé
+                    # sans ses paramètres et retournerait un résultat trompeur.
+                    logger.warning(
+                        "Groq malformed tool args for %s: %r (%s) — raising to trigger fallback",
+                        tc.function.name, args_raw, e,
+                    )
+                    raise GroqToolArgsError(
+                        f"malformed JSON arguments for tool {tc.function.name!r}: {args_raw!r}"
+                    ) from e
                 tool_calls.append(ToolCall(id=tc.id, name=tc.function.name, arguments=args))
 
         usage_obj = getattr(resp, "usage", None)
@@ -87,7 +115,7 @@ class GroqProvider(LLMProvider):
             tool_calls=tool_calls,
             usage=usage,
             provider=self.name,
-            finish_reason=choice.finish_reason or "stop",
+            finish_reason=finish,
         )
 
 
