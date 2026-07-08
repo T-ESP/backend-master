@@ -2,12 +2,7 @@ FROM python:3.11-slim
 
 WORKDIR /app
 
-# Build deps for llama-cpp-python (CPU-only) + curl for fetching the local LLM model
 RUN apt-get update && apt-get install -y --no-install-recommends \
-        build-essential \
-        cmake \
-        git \
-        curl \
         ca-certificates \
         libgomp1 \
     && rm -rf /var/lib/apt/lists/*
@@ -25,7 +20,6 @@ COPY requirements.txt .
 # Pré-installer la variante CPU fait que pip la considère déjà satisfaite.
 RUN pip install --no-cache-dir torch --index-url https://download.pytorch.org/whl/cpu
 
-# llama-cpp-python builds with OpenBLAS on CPU; we keep wheel-friendly settings
 RUN pip install --no-cache-dir -r requirements.txt
 
 COPY . .

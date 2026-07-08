@@ -45,13 +45,6 @@ def trigger_run():
         with _run_lock:
             _is_running = True
             try:
-                # Free local LLM RAM during heavy ML cron run.
-                try:
-                    from chat.llm.factory import _instance as _llm_instance  # type: ignore
-                    _llm_instance("local").unload()
-                except Exception as e:
-                    logger.warning("Could not unload local LLM before cron: %s", e)
-
                 run_all_tenants()
             finally:
                 _is_running = False

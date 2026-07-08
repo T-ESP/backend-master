@@ -67,10 +67,10 @@ curl -fsS -X POST "$API/chat/sessions/$SID/messages" -H "$H" \
   -d '{"content":"Top 5 produits par chiffre d'\''affaires ?"}' \
   | jq '{shortcut: .data.shortcut_used, content: (.data.assistant_message.content[:200])}'
 
-bold "9. Provider-specific request (force local)"
+bold "9. Provider-specific request (force groq)"
 curl -fsS -X POST "$API/chat/sessions/$SID/messages" -H "$H" \
   -H 'content-type: application/json' \
-  -d '{"content":"Salut !","provider":"local"}' \
+  -d '{"content":"Salut !","provider":"groq"}' \
   | jq '{provider: .data.provider_used, content: .data.assistant_message.content}'
 
 bold "10. List sessions"
