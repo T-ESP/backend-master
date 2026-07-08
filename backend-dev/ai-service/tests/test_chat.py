@@ -1,4 +1,4 @@
-﻿"""Unit tests for the chat module — pieces that don't need DB / network."""
+"""Unit tests for the chat module — pieces that don't need DB / network."""
 
 from __future__ import annotations
 

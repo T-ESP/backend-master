@@ -1,4 +1,4 @@
-﻿#!/usr/bin/env bash
+#!/usr/bin/env bash
 # scripts/chat_smoke_test.sh
 #
 # Quick end-to-end check of the chatbot stack. Assumes `docker compose up -d`
