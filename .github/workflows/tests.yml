@@ -5,9 +5,26 @@ on:
     branches: [ main ]
 
 jobs:
+  test:
+    name: Test Backend
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout backend repo
+        uses: actions/checkout@v4
+
+      - name: Validate docker compose
+        run: docker compose config
+        env:
+          POSTGRES_PASSWORD: ci-postgres-password
+
+      - name: Build backend image
+        run: docker build -t backend-master-ci .
+
   deploy:
     name: Deploy Backend (PROD)
     runs-on: ubuntu-latest
+    needs: test
 
     steps:
       - name: Checkout backend repo

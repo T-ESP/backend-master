@@ -7,10 +7,9 @@ services:
       POSTGRES_USER: user
       POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:?POSTGRES_PASSWORD is required}
       POSTGRES_DB: stocks_master
-    ports:
-      - "5433:5432"
     volumes:
       - db_data:/var/lib/postgresql/data
+    restart: unless-stopped
     healthcheck:
       test: ["CMD-SHELL", "pg_isready -U user -d stocks_master"]
       interval: 5s
