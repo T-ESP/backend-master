@@ -20,7 +20,7 @@ services:
 
   # ai-service is defined in the base compose; in prod it just needs to join the
   # shared network so `web` can reach it at http://ai-service:8001 and it can
-  # reach the db. (No traefik route — it's internal-only.)
+  # reach the db. (No traefik route — it's internal-only.)))
   ai-service:
     networks:
       - monitoring_net
