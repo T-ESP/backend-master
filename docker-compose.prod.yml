@@ -26,6 +26,8 @@ services:
       - monitoring_net
 
   pgadmin:
+    networks:
+      - monitoring_net
     ports:
       - "5052:80"
 
