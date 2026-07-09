@@ -60,8 +60,10 @@ jobs:
         run: |
           ansible-playbook -i inventory.ini deploy-backend-master.yml \
             -e "gh_token=${{ secrets.GH_TOKEN }}" \
-            -e "postgres_password=$POSTGRES_PASSWORD"
+            -e "postgres_password=$POSTGRES_PASSWORD" \
+            -e "groq_api_key=$GROQ_API_KEY"
         env:
           ANSIBLE_HOST_KEY_CHECKING: False
           POSTGRES_PASSWORD: ${{ secrets.POSTGRES_PASSWORD }}
+          GROQ_API_KEY: ${{ secrets.GROQ_API_KEY }}
 #################
