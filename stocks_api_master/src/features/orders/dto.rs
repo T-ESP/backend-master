@@ -100,6 +100,26 @@ pub struct OrderQueryParams {
     pub offset: Option<i64>,
     pub user_id: Option<i32>,
     pub status: Option<String>,
+    /// Recherche libre sur l'id de commande, l'id utilisateur ou le statut
+    pub search: Option<String>,
+    pub min_amount: Option<Decimal>,
+    pub max_amount: Option<Decimal>,
+    pub date_from: Option<DateTime<Utc>>,
+    pub date_until: Option<DateTime<Utc>>,
+    /// date | amount | status | user
+    pub sort_by: Option<String>,
+    /// asc | desc
+    pub sort_order: Option<String>,
+}
+
+/// Page de résultats accompagnée du nombre total de lignes correspondant aux filtres,
+/// pour que le client puisse calculer le nombre de pages sans tout télécharger.
+#[derive(Debug, Serialize, ToSchema)]
+pub struct PaginatedOrdersResponse {
+    pub items: Vec<OrderResponse>,
+    pub total: i64,
+    pub limit: i64,
+    pub offset: i64,
 }
 
 #[derive(Debug, Deserialize, ToSchema)]
@@ -260,6 +280,7 @@ mod tests {
             order_date: Utc::now(),
             status: "shipped".to_string(),
             amount: Decimal::from_str("599.98").unwrap(),
+            discount_amount: Decimal::ZERO,
             line_items: vec![
                 LineItemResponse {
                     id: 1,

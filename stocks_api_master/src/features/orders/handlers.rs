@@ -12,7 +12,7 @@ use crate::common::responses::{SuccessResponse, ErrorResponse};
 use crate::common::error_codes;
 use crate::common::security::Claims;
 
-use super::dto::{CreateOrderRequest, UpdateOrderRequest, OrderQueryParams, OrderResponse, LineItemResponse, OrderStatsResponse, SendReceiptRequest};
+use super::dto::{CreateOrderRequest, UpdateOrderRequest, OrderQueryParams, OrderResponse, LineItemResponse, OrderStatsResponse, SendReceiptRequest, PaginatedOrdersResponse};
 use super::services::OrderService;
 use crate::features::loyalty::services::LoyaltyService;
 use crate::features::discounts::services::DiscountService;
@@ -26,7 +26,7 @@ use crate::common::email;
     tag = "orders",
     params(OrderQueryParams),
     responses(
-        (status = 200, description = "Orders retrieved successfully", body = inline(SuccessResponse<Vec<OrderResponse>>)),
+        (status = 200, description = "Orders retrieved successfully", body = inline(SuccessResponse<PaginatedOrdersResponse>)),
         (status = 500, description = "Database error", body = ErrorResponse)
     )
 )]
@@ -35,9 +35,9 @@ pub async fn get_orders(
     Extension(pool): Extension<PgPool>,
 ) -> Response {
     match OrderService::get_orders(&pool, &params).await {
-        Ok(orders) => (
+        Ok(page) => (
             StatusCode::OK,
-            Json(SuccessResponse::new(orders, "Orders retrieved successfully".to_string()))
+            Json(SuccessResponse::new(page, "Orders retrieved successfully".to_string()))
         ).into_response(),
         Err(e) => {
             eprintln!("Database error: {}", e);
