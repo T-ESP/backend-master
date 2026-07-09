@@ -17,6 +17,9 @@ jobs:
         run: docker compose config
         env:
           POSTGRES_PASSWORD: ci-postgres-password
+          # `docker compose config` ne fait qu'interpoler les variables : une
+          # valeur factice suffit pour valider (le service IA n'est pas démarré).
+          GROQ_API_KEY: ci-dummy-key
 
       - name: Build backend image
         run: docker build -t backend-master-ci .
