@@ -58,7 +58,7 @@ services:
       SENDGRID_API_KEY: ${SENDGRID_API_KEY:-}
       TICKET_FROM_EMAIL: ${TICKET_FROM_EMAIL:-caisse@stock-s.fr}
     ports:
-      - "8091:8080"
+      - "8092:8080"
     restart: unless-stopped
 
   # Python AI service: ML batch jobs (Prophet, anomalies, ...) + the chatbot
